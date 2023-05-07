@@ -36,10 +36,10 @@ class OCAClientProtocol:
     def send(self, message):
         self.message = message.bytes
         self.transport.sendto(self.message)
-        logging.debug(f"To device   --> {len(self.message)} bytes")
+        # logging.debug(f"To device   --> {len(self.message)} bytes")
 
     def datagram_received(self, data, addr):
-        logging.debug(f"From device <-- {len(self.message)} bytes")
+        # logging.debug(f"From device <-- {len(self.message)} bytes")
         self.receive_queue.put_nowait(data)
         # self.transport.close()
 
@@ -108,6 +108,11 @@ class OCAController:
         """
         while True:
             message = await self.receive_queue.get()
+            try:
+                pdu = marshal(message)
+            except Exception as exc:
+                logging.warning(f"Could not parse incoming data: {exc}")
+            logging.info(f"Receive: {type(pdu).__qualname__}")
 
 
     # == == == == == Device Supervision
@@ -221,7 +226,6 @@ class OCAController:
                 ],
             )
             await self.transmit_queue.put(pkt)
-            print("Bap!")
             await asyncio.sleep(5)
 
 

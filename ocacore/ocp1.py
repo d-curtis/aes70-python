@@ -5,9 +5,9 @@ OCP.1
 This contains the data structure definitions for OCP.1
 """
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator 
 from asyncio import Queue
-from typing import Any, Union
+from typing import Any, Union, ClassVar
 from ctypes import (
     c_int8,
     c_uint8,
@@ -42,9 +42,19 @@ class MessageType(enum.Enum):
     KEEPALIVE = 4
 
 
+class Ocp1PDU(BaseModel):
+    """
+    Base class for OCP1 Protocol Data Units (AES70-3 5.6)
+    """
+    class Config:
+        arbitraary_types_allowed = True
+
+
 class Ocp1Header(BaseModel):
     class Config:
         arbitrary_types_allowed = True
+    
+    format: ClassVar[str] = "!hibh"
 
     protocol_version: Union[int, c_uint16]
     message_size: Union[int, c_uint32]
@@ -54,12 +64,23 @@ class Ocp1Header(BaseModel):
     @property
     def bytes(self) -> struct.Struct:
         return struct.pack(
-            "!hibh",
+            self.format,
             self.protocol_version,
             self.message_size,
             self.message_type,
             self.message_count
         )
+    
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "Ocp1Header":
+        unpacked_data = struct.unpack(cls.format, data)
+        return cls(
+            **dict(zip(cls.__fields__.keys(), unpacked_data))
+        )
+    
+    @classmethod
+    def __sizeof__(cls) -> int:
+        return struct.calcsize(cls.format)
 
 
 class Ocp1KeepAlive(BaseModel):
@@ -119,10 +140,8 @@ class Ocp1Command(BaseModel):
         )
 
 
-class Ocp1CommandPdu(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+class Ocp1CommandPdu(Ocp1PDU):
+    sync_val: ClassVar[int] = SYNC_VAL
     header: Ocp1Header
     commands: list[Ocp1Command]
 
@@ -130,11 +149,11 @@ class Ocp1CommandPdu(BaseModel):
     def bytes(self) -> struct.Struct:
         return struct.pack(
             f"!B9s{sum([len(command.bytes) for command in self.commands])}s",
-            SYNC_VAL,
+            self.sync_val,
             self.header.bytes,
             *[c.bytes for c in self.commands]
         )
-
+    
 
 class Ocp1NotificationPdu:
     def __init__(self):
@@ -146,27 +165,54 @@ class Ocp1ResponsePdu:
         raise NotImplementedError
 
 
-class Ocp1KeepAlivePdu(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+class Ocp1KeepAlivePdu(Ocp1PDU):
+    sync_val: ClassVar[int] = SYNC_VAL
     header: Ocp1Header
-    heartbeat: Union[int, c_uint16]
+    heartbeat: int
 
     @property
     def bytes(self) -> struct.Struct:
         return struct.pack(
             "!B9sH",
-            SYNC_VAL,
+            self.sync_val,
             self.header.bytes,
             self.heartbeat
         )
+    
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "Ocp1KeepAlivePdu":
+        sync_val, header_bytes, heartbeat = struct.unpack("!B9sH", data)
+        return cls(
+            sync_val = sync_val,
+            header = Ocp1Header.from_bytes(header_bytes),
+            heartbeat = heartbeat
+        ) 
 
+
+# == == == == ==
 
 PDU_CLASSES = {
-    MessageType.COMMAND: Ocp1CommandPdu,
-    MessageType.COMMAND_RESPONSE_REQUIRED: Ocp1CommandPdu,
-    MessageType.NOTIFICATION: Ocp1NotificationPdu,
-    MessageType.RESPONSE: Ocp1ResponsePdu,
-    MessageType.KEEPALIVE: Ocp1KeepAlivePdu
+    0: Ocp1CommandPdu,
+    1: Ocp1CommandPdu,
+    2: Ocp1NotificationPdu,
+    3: Ocp1ResponsePdu,
+    4: Ocp1KeepAlivePdu
 }
+
+
+def marshal(data: bytes) -> Ocp1PDU:
+    """
+    Parse serialised packets back into OCP1 objects
+
+    Args:
+        data: bytes to parse
+
+    Returns:
+        Ocp1PDU: Parsed data
+    """
+    #TODO - How to handle bad sync value here?
+    header_offset = 1 
+    header_end = header_offset + Ocp1Header.__sizeof__()
+    header = Ocp1Header.from_bytes(data[header_offset : header_end])
+    pdu_type = PDU_CLASSES[header.message_type]
+    return pdu_type.from_bytes(data)
