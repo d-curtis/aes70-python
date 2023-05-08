@@ -90,22 +90,28 @@ class Ocp1KeepAlive(BaseModel):
     heartbeat_sec: Union[int, c_uint16]
 
 
+class Parameter(BaseModel):
+    value: Any
+    format: str # struct format string
+
+
 class Ocp1Parameters(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    parameters: list[Any]
-
-    @property
-    def parameter_count(self) -> int:
-        return len(self.parameters)
+    parameters: list[Parameter]
 
     @property
     def bytes(self) -> struct.Struct:
         #TODO Parameters may be variable widths according to target object. This works for OcaSwitch because it takes a u16.
-        return struct.pack(f"!B{self.parameter_count}H", self.parameter_count, *self.parameters)
-    
+        parameters_format = "".join(p.format for p in self.parameters)
+        parameter_count = len(self.parameters)
+        return struct.pack(f"!B{parameters_format}", parameter_count, *[p.value for p in self.parameters])
+
     def __len__(self) -> int:
+        return len(self.parameters)
+    
+    def __sizeof__(self) -> int:
         return len(self.bytes)
 
 
@@ -130,13 +136,12 @@ class Ocp1Command(BaseModel):
     @property
     def bytes(self) -> struct.Struct:
         return struct.pack(
-            f"!3i4s{str(len(self.parameters))}s",
-            len(self.parameters.bytes) + 16, # Length of parameters + u32 size, u32 handle, u32 ono, u32 method
+            f"!3i4s{str(self.parameters.__sizeof__())}s",
+            self.parameters.__sizeof__() + 16, # Length of parameters + u32 size, u32 handle, u32 ono, u32 method
             self.handle,
             self.target_ono,
             self.method_id.bytes,
             self.parameters.bytes
-  
         )
 
 
@@ -154,15 +159,62 @@ class Ocp1CommandPdu(Ocp1PDU):
             *[c.bytes for c in self.commands]
         )
     
+    @classmethod
+    def from_bytes(cls) -> "Ocp1CommandPdu":
+        pass
+        
+    
 
 class Ocp1NotificationPdu:
     def __init__(self):
         raise NotImplementedError
 
 
-class Ocp1ResponsePdu:
-    def __init__(self):
+class Ocp1Response(BaseModel):
+    response_size: int # u32
+    handle: int # u32
+    status_code: int # OcaStatus
+    parameters: Ocp1Parameters
+    
+    @property
+    def bytes(self) -> struct.Struct:
+        return struct.pack(
+            f"!iiB{self.parameters.__sizeof__()}s",
+            self.response_size,
+            self.handle,
+            self.status_code,
+            self.parameters.bytes
+        )
+    
+    @classmethod
+    def from_bytes(cls, data) -> "Ocp1Response":
         raise NotImplementedError
+
+
+class Ocp1ResponsePdu(Ocp1PDU):
+    sync_val: ClassVar[int] = SYNC_VAL
+    header: Ocp1Header
+    responses: list[Ocp1Response]
+    
+    @property
+    def bytes(self) -> struct.Struct:
+        response_size = sum(response.__sizeof__() for response in self.responses)
+        return struct.pack(
+            f"!B9s{response_size}s",
+            self.sync_val,
+            self.header,
+            self.responses
+        )
+    
+    @classmethod
+    def from_bytes(cls, data) -> "Ocp1ResponsePdu":
+        raise NotImplementedError
+        # response_size = sum(response.__sizeof__() for response in scls.responses)
+        sync_val, header_bytes, responses_bytes = struct.unpack(f"!b9s{response_size}s", data) 
+        return cls(
+            sync_val = sync_val,
+            header = Ocp1Header.from_bytes(header_bytes)
+        )
 
 
 class Ocp1KeepAlivePdu(Ocp1PDU):
@@ -193,7 +245,7 @@ class Ocp1KeepAlivePdu(Ocp1PDU):
 
 PDU_CLASSES = {
     0: Ocp1CommandPdu,
-    1: Ocp1CommandPdu,
+    1: Ocp1CommandPdu, # Response required
     2: Ocp1NotificationPdu,
     3: Ocp1ResponsePdu,
     4: Ocp1KeepAlivePdu

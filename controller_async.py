@@ -219,7 +219,7 @@ class OCAController:
         await asyncio.sleep(0.1)
 
         # Demo
-        for param in [0, 1]:
+        for param in [Parameter(value=0, format="H"), Parameter(value=1, format="H")]:
             pkt = Ocp1CommandPdu(
                 header=Ocp1Header(
                     protocol_version=1,
