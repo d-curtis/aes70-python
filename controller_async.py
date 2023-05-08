@@ -19,7 +19,7 @@ class State(enum.Enum):
     CONNECTED = 3  # Idle
 
 
-T_KEEPALIVE_S: int = 1  # seconds
+T_KEEPALIVE_S: int = 5  # seconds
 T_DISCOVERY_S: int = 0.5
 RECV_IP: str = ""
 RECV_PORT: int = 42042
@@ -78,6 +78,9 @@ class OCAController:
         self.transmit_queue = asyncio.Queue()
         self.receive_task = None
         self.receive_queue = asyncio.Queue()
+        
+        self.unanswered_keepalives = 0
+        self.session_active = asyncio.Event()
 
 
     # == == == == == Queue Consumers
@@ -113,6 +116,11 @@ class OCAController:
             except Exception as exc:
                 logging.warning(f"Could not parse incoming data: {exc}")
             logging.info(f"Receive: {type(pdu).__qualname__}")
+            
+            if isinstance(pdu, Ocp1KeepAlivePdu):
+                if not self.session_active.is_set():
+                    self.session_active.set()
+                self.unanswered_keepalives -= 1 if self.unanswered_keepalives > 0 else self.unanswered_keepalives
 
 
     # == == == == == Device Supervision
@@ -132,7 +140,10 @@ class OCAController:
             heartbeat=T_KEEPALIVE_S,
         )
         while True:
+            if self.unanswered_keepalives >= 3:
+                self._state_transition(State.DISCONNECTED)
             self.transmit_queue.put_nowait(keepalive_pkt)
+            self.unanswered_keepalives += 1
             await asyncio.sleep(T_KEEPALIVE_S)
     
     
@@ -152,7 +163,7 @@ class OCAController:
         """
         Main tick for State.DISCONNECTED
         """
-        pass
+        raise NotImplementedError("#TODO handle reconnection")
 
 
     async def _main_discovering(self: object) -> None:
@@ -195,8 +206,8 @@ class OCAController:
         logging.debug("Start keepalive task")
         self.keepalive_task = asyncio.create_task(self._keepalive())
 
-        # TODO Wait for return keepalive before approving the connection
-        await asyncio.sleep(1)
+        # Set by first keepalive response
+        await self.session_active.wait()
 
         self._state_transition(State.CONNECTED)
 
