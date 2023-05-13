@@ -103,7 +103,6 @@ class Ocp1Parameters(BaseModel):
 
     @property
     def bytes(self) -> struct.Struct:
-        #TODO Parameters may be variable widths according to target object. This works for OcaSwitch because it takes a u16.
         parameters_format = "".join(p.format for p in self.parameters)
         parameter_count = len(self.parameters)
         return struct.pack(f"!B{parameters_format}", parameter_count, *[p.value for p in self.parameters])
