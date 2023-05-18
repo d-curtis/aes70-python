@@ -5,33 +5,15 @@ OCP.1
 This contains the data structure definitions for OCP.1
 """
 
-from pydantic import BaseModel, validator 
-from asyncio import Queue
-from typing import Any, Union, ClassVar
-from ctypes import (
-    c_int8,
-    c_uint8,
-    c_uint16,
-    c_uint32,
-)
-from .occ import OcaMethodID
+from pydantic import BaseModel
+from typing import Any, Union, ClassVar, Optional, TypedDict
+from ocacore.occ import *
 import enum
 import struct
 
 # AES70-3 5.6.1.1
 SYNC_VAL = 0x3B
 
-def _cast_int_to_i8(value: int) -> c_int8:
-    return c_int8(value)
-
-def _cast_int_to_u8(value: int) -> c_uint8:
-    return c_uint8(value)
-
-def _cast_int_to_u16(value: int) -> c_uint16:
-    return c_uint16(value)
-
-def _cast_int_to_u32(value: int) -> c_uint32:
-    return c_uint32(value)
 
 
 class MessageType(enum.Enum):
@@ -54,12 +36,22 @@ class Ocp1Header(BaseModel):
     class Config:
         arbitrary_types_allowed = True
     
-    format: ClassVar[str] = "!hibh"
+    format: ClassVar[str] = "".join([
+        "!",
+        OcaUint16.format,
+        OcaUint32.format,
+        "B",
+        OcaUint16.format
+    ])
 
-    protocol_version: Union[int, c_uint16]
-    message_size: Union[int, c_uint32]
-    message_type: Union[int, c_int8]
-    message_count: Union[int, c_uint16]
+    protocol_version: OcaUint16
+    message_size: OcaUint32
+    message_type: MessageType
+    message_count: OcaUint16
+
+    @validator("message_type")
+    def _cast_message_type(val: MessageType) -> uint8:
+        return uint8(val.value)
 
     @property
     def bytes(self) -> struct.Struct:
@@ -73,9 +65,17 @@ class Ocp1Header(BaseModel):
     
     @classmethod
     def from_bytes(cls, data: bytes) -> "Ocp1Header":
-        unpacked_data = struct.unpack(cls.format, data)
+        (
+            protocol_version, 
+            message_size, 
+            message_type, 
+            message_count 
+        ) = struct.unpack(cls.format, data)
         return cls(
-            **dict(zip(cls.__fields__.keys(), unpacked_data))
+            protocol_version=OcaUint16(protocol_version),
+            message_size=OcaUint32(message_size),
+            message_type=MessageType(message_type),
+            message_count=OcaUint16(message_count)
         )
     
     @classmethod
@@ -84,10 +84,7 @@ class Ocp1Header(BaseModel):
 
 
 class Ocp1KeepAlive(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
-    heartbeat_sec: Union[int, c_uint16]
+    heartbeat_sec: OcaUint16
 
 
 class Parameter(BaseModel):
@@ -99,13 +96,28 @@ class Ocp1Parameters(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    parameters: list[Parameter]
+    parameters: Union[list[Parameter], None]
+
+    @property
+    def parameter_count(self) -> uint8:
+        return 0 if self.parameters is None else len(self.parameters)
 
     @property
     def bytes(self) -> struct.Struct:
+        if self.parameters is None:
+            return struct.pack("!B", 0)
         parameters_format = "".join(p.format for p in self.parameters)
-        parameter_count = len(self.parameters)
-        return struct.pack(f"!B{parameters_format}", parameter_count, *[p.value for p in self.parameters])
+        return struct.pack(f"!B{parameters_format}", self.parameter_count, *[p.value for p in self.parameters])
+    
+    @classmethod
+    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1Parameters":
+        parameter_count = struct.unpack("!B", data[0])
+        #TODO - Parameters will be variable length according to the invoked method.
+        #       This needs a way of knowing what the format should be for us to unpack correctly.
+        #       For now, let's just store the byte array and deal with it Soon(tm)...
+        parameters = [Parameter(value=data[1:], format="No clue m8")]
+        return cls(parameters=parameters)
+
 
     def __len__(self) -> int:
         return len(self.parameters)
@@ -127,21 +139,26 @@ class Ocp1Command(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    handle: int
-    target_ono: int
+    handle: uint32
+    target_ono: uint32
     method_id: OcaMethodID
     parameters: Ocp1Parameters
+    response_format: Optional[list[str]]
 
     @property
     def bytes(self) -> struct.Struct:
+        param_len = self.parameters.__sizeof__()
         return struct.pack(
-            f"!3i4s{str(self.parameters.__sizeof__())}s",
-            self.parameters.__sizeof__() + 16, # Length of parameters + u32 size, u32 handle, u32 ono, u32 method
+            "!3i4s" + (f"{param_len}s" if param_len else ""),
+            self.parameters.__sizeof__() + 16,
             self.handle,
             self.target_ono,
             self.method_id.bytes,
             self.parameters.bytes
         )
+    
+    def __sizeof__(self) -> int:
+        return len(self.bytes)
 
 
 class Ocp1CommandPdu(Ocp1PDU):
@@ -159,7 +176,7 @@ class Ocp1CommandPdu(Ocp1PDU):
         )
     
     @classmethod
-    def from_bytes(cls) -> "Ocp1CommandPdu":
+    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1CommandPdu":
         pass
         
     
@@ -186,8 +203,16 @@ class Ocp1Response(BaseModel):
         )
     
     @classmethod
-    def from_bytes(cls, data) -> "Ocp1Response":
-        raise NotImplementedError
+    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1Response":
+        response_size, handle, status_code = struct.unpack("!iiB", data[:9])
+        parameter_len = response_size - struct.calcsize("!iiB")
+        parameters = struct.unpack(f"!{parameter_len}B", data[9:])
+        return cls(
+            response_size=response_size,
+            handle=handle,
+            status_code=status_code,
+            parameters=Ocp1Parameters(parameters=parameters, format="#TODOOOOO") #TODO see note in Ocp1Parameters
+        )
 
 
 class Ocp1ResponsePdu(Ocp1PDU):
@@ -206,37 +231,45 @@ class Ocp1ResponsePdu(Ocp1PDU):
         )
     
     @classmethod
-    def from_bytes(cls, data) -> "Ocp1ResponsePdu":
+    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1ResponsePdu":
+        #TODO Need to know the method that was invoked, response handle will match, so register this somewhere to know the format of the parameters
         raise NotImplementedError
-        # response_size = sum(response.__sizeof__() for response in scls.responses)
-        sync_val, header_bytes, responses_bytes = struct.unpack(f"!b9s{response_size}s", data) 
-        return cls(
-            sync_val = sync_val,
-            header = Ocp1Header.from_bytes(header_bytes)
-        )
+        # sync_val, header_bytes = struct.unpack(f"!b9s", data[:10]) 
+        # breakpoint()
+        # return cls(
+        #     sync_val = sync_val,
+        #     header = Ocp1Header.from_bytes(header_bytes)
+        #     responses = [Ocp1Response.from_bytes()]
+        # )
 
 
 class Ocp1KeepAlivePdu(Ocp1PDU):
     sync_val: ClassVar[int] = SYNC_VAL
+    format: ClassVar[int] = "".join([
+        "!",
+        "B",
+        str(Ocp1Header.__sizeof__()) + "s",
+        OcaUint16.format
+    ])
     header: Ocp1Header
-    heartbeat: int
+    heartbeat: OcaUint16
 
     @property
     def bytes(self) -> struct.Struct:
         return struct.pack(
-            "!B9sH",
+            self.format,
             self.sync_val,
             self.header.bytes,
             self.heartbeat
         )
     
     @classmethod
-    def from_bytes(cls, data: bytes) -> "Ocp1KeepAlivePdu":
-        sync_val, header_bytes, heartbeat = struct.unpack("!B9sH", data)
+    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1KeepAlivePdu":
+        sync_val, header_bytes, heartbeat = struct.unpack(cls.format, data)
         return cls(
             sync_val = sync_val,
             header = Ocp1Header.from_bytes(header_bytes),
-            heartbeat = heartbeat
+            heartbeat = OcaUint16(heartbeat)
         ) 
 
 
@@ -250,8 +283,9 @@ PDU_CLASSES = {
     4: Ocp1KeepAlivePdu
 }
 
+HandleRegistry = dict[uint32, Ocp1Command]
 
-def marshal(data: bytes) -> Ocp1PDU:
+def marshal(data: bytes, handle_registry: HandleRegistry) -> Ocp1PDU:
     """
     Parse serialised packets back into OCP1 objects
 
@@ -266,4 +300,4 @@ def marshal(data: bytes) -> Ocp1PDU:
     header_end = header_offset + Ocp1Header.__sizeof__()
     header = Ocp1Header.from_bytes(data[header_offset : header_end])
     pdu_type = PDU_CLASSES[header.message_type]
-    return pdu_type.from_bytes(data)
+    return pdu_type.from_bytes(data, handle_registry)
