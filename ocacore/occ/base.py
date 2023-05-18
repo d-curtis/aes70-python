@@ -22,6 +22,23 @@ class OcaAbstractBase(BaseModel):
     """ Base type for all OCC classes. Does not implement anything, only used for typing """
     pass
 
+
+class OcaValueBase(OcaAbstractBase):
+    """ Base type for simple types to add dunder methods for the `value` field """
+    
+    def __init__(self, value) -> None:
+        super().__init__(value=value)
+    
+    def __str__(self) -> str:
+        return str(self.value)
+    
+    def __int__(self) -> int:
+        return int(self.value)
+
+    def __index__(self) -> int:
+        return int(self.value)
+
+
 # == == == == == Base data types
 
 class OcaBit(OcaAbstractBase):
@@ -34,57 +51,57 @@ class OcaBoolean(OcaAbstractBase):
     value: bool
 
 
-class OcaInt8(OcaAbstractBase):
+class OcaInt8(OcaValueBase):
     format: ClassVar[str] = "b"
     value: int8
 
 
-class OcaInt16(OcaAbstractBase):
+class OcaInt16(OcaValueBase):
     format: ClassVar[str] = "h"
     value: int16
 
 
-class OcaInt32(OcaAbstractBase):
+class OcaInt32(OcaValueBase):
     format: ClassVar[str] = "i"
     value: int32
 
 
-class OcaInt64(OcaAbstractBase):
+class OcaInt64(OcaValueBase):
     format: ClassVar[str] = "q"
     value: int64
 
 
-class OcaUint8(OcaAbstractBase):
+class OcaUint8(OcaValueBase):
     format: ClassVar[str] = "B"
     value: uint8
 
 
-class OcaUint16(OcaAbstractBase):
+class OcaUint16(OcaValueBase):
     format: ClassVar[str] = "H"
     value: uint16
 
 
-class OcaUint32(OcaAbstractBase):
+class OcaUint32(OcaValueBase):
     format: ClassVar[str] = "I"
     value: uint32
 
 
-class OcaUint64(OcaAbstractBase):
+class OcaUint64(OcaValueBase):
     format: ClassVar[str] = "Q"
     value: uint64
 
 
-class OcaFloat32(OcaAbstractBase):
+class OcaFloat32(OcaValueBase):
     format: ClassVar[str] = "f"
     value: float #TODO how to constrain floats?
 
 
-class OcaFloat64(OcaAbstractBase):
+class OcaFloat64(OcaValueBase):
     format: ClassVar[str] = "d"
     value: float #TODO how to constrain floats?
 
 
-class OcaString(OcaAbstractBase):
+class OcaString(OcaValueBase):
     length: OcaUint16
     value: str
 

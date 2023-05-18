@@ -130,7 +130,6 @@ class OcaLevelMeterLaw(Enum):
     PEAK = 7
     PROPRIETARY_VALUE_BASE = 128
 
-
 class OcaDBr(OcaAbstractBase):
     format: ClassVar[str] = f"2{OcaDB.format}"
     value: OcaDB
@@ -144,7 +143,7 @@ class OcaImpedance(OcaAbstractBase):
 
 
 class OcaDelayValue(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaFloat32.format}{OcaDelayUnit.format}"
+    format: ClassVar[str] = f"{OcaFloat32.format}B"
     delay_value: OcaFloat32
     delay_unit: OcaDelayUnit
 
