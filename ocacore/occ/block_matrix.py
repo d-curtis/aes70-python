@@ -32,7 +32,7 @@ class OcaPort(OcaAbstractBase):
 
     @property
     def format(self) -> str:
-        return f"{OcaONo.format}{OcaPortID.format}{self.name.format}"
+        return f"{OcaONo.format}{OcaPortID.format}{self.name._format}"
 
 
 class OcaSignalPath(OcaAbstractBase):
@@ -63,7 +63,7 @@ class OcaProtoPort(OcaAbstractBase):
 
     @property
     def format(self) -> str:
-        return f"{OcaProtoONo.format}{self.proto_id.format}{self.name.format}"
+        return f"{OcaProtoONo.format}{self.proto_id.format}{self.name._format}"
 
 
 class OcaProtoSignalPath(OcaAbstractBase):
@@ -84,5 +84,5 @@ class OcaObjectSearchResult(OcaAbstractBase):
 
     @property
     def format(self) -> str:
-        return f"{OcaONo.format}{OcaClassIdentification.format}{OcaONoPath.format}{self.role.format}{self.label.format}"
+        return f"{OcaONo.format}{OcaClassIdentification.format}{OcaONoPath.format}{self.role._format}{self.label._format}"
 

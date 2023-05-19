@@ -63,7 +63,7 @@ class OcaMediaSinkConnector(OcaAbstractBase):
     def format(self) -> str:
         return "".join([
             OcaMediaConnectorID.format,
-            self.id_external.format,
+            self.id_external._format,
             self.connection.format,
             self.available_codings.format,
             OcaUint16.format,
@@ -89,7 +89,7 @@ class OcaMediaSourceConnector(OcaAbstractBase):
     def format(self) -> str:
         return "".join([
             OcaMediaConnectorID.format,
-            self.id_external.format,
+            self.id_external._format,
             self.connection.format,
             self.available_codings.format,
             OcaUint16.format,

@@ -9,13 +9,13 @@ import struct
 
 
 int8 = conint(ge=-0x80, le=0x7F)
-int16 = conint(ge=-0x8000, le=0x7FFF)
-int32 = conint(ge=-0x80000000, le=0x7FFFFFFF)
-int64 = conint(ge=-0x8000000000000000, le=-0x7FFFFFFFFFFFFFFF)
+int16 = conint(ge=-0x80_00, le=0x7F_FF)
+int32 = conint(ge=-0x80_00_00_00, le=0x7F_FF_FF_FF)
+int64 = conint(ge=-0x80_00_00_00_00_00_00_00, le=0x7F_FF_FF_FF_FF_FF_FF_FF)
 uint8 = conint(ge=0, le=0xFF)
-uint16 = conint(ge=0, le=0xFFFF)
-uint32 = conint(ge=0, le=0xFFFFFFFF)
-uint64 = conint(ge=0, le=0xFFFFFFFFFFFFFFFF)
+uint16 = conint(ge=0, le=0xFF_FF)
+uint32 = conint(ge=0, le=0xFF_FF_FF_FF)
+uint64 = conint(ge=0, le=0xFF_FF_FF_FF_FF_FF_FF_FF)
 
 
 class OcaAbstractBase(BaseModel):
@@ -37,6 +37,31 @@ class OcaValueBase(OcaAbstractBase):
 
     def __index__(self) -> int:
         return int(self.value)
+    
+    def __bool__(self) -> bool:
+        return bool(self.value)
+    
+    def __eq__(self, other) -> bool:
+        return other == self.value
+
+
+class SerialisableBase(OcaAbstractBase):
+
+    @property
+    def bytes(self) -> bytes:
+        attributes = dict(self)
+        return struct.pack(
+            "!" + self.format.replace("!", ""),
+            *[value for value in attributes.values()]
+        )
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "SerialisableBase":
+        attributes = struct.unpack("!" + cls.format.replace("!", ""), data)
+        fields = cls.__fields__.keys()
+        if len(attributes) > 1:
+            return cls(**dict(zip(fields, *attributes)))
+        return cls(**dict(zip(fields, attributes)))
 
 
 # == == == == == Base data types
@@ -46,47 +71,47 @@ class OcaBit(OcaAbstractBase):
     value: int8
 
 
-class OcaBoolean(OcaAbstractBase):
+class OcaBoolean(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "?"
     value: bool
 
 
-class OcaInt8(OcaValueBase):
+class OcaInt8(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "b"
     value: int8
 
 
-class OcaInt16(OcaValueBase):
+class OcaInt16(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "h"
     value: int16
 
 
-class OcaInt32(OcaValueBase):
+class OcaInt32(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "i"
     value: int32
 
 
-class OcaInt64(OcaValueBase):
+class OcaInt64(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "q"
     value: int64
 
 
-class OcaUint8(OcaValueBase):
+class OcaUint8(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "B"
     value: uint8
 
 
-class OcaUint16(OcaValueBase):
+class OcaUint16(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "H"
     value: uint16
 
 
-class OcaUint32(OcaValueBase):
+class OcaUint32(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "I"
     value: uint32
 
 
-class OcaUint64(OcaValueBase):
+class OcaUint64(OcaValueBase, SerialisableBase):
     format: ClassVar[str] = "Q"
     value: uint64
 
@@ -101,13 +126,16 @@ class OcaFloat64(OcaValueBase):
     value: float #TODO how to constrain floats?
 
 
-class OcaString(OcaValueBase):
-    length: OcaUint16
+class OcaString(OcaValueBase, SerialisableBase):
+    @property
+    def length(self) -> OcaUint16:
+        return len(self.value)
+
     value: str
 
     @property
     def format(self) -> str:
-        return f"{len(self.value)}B"
+        return f"{OcaUint16.format}{len(self.value)}s"
 
 
 class OcaBitstring(OcaAbstractBase):

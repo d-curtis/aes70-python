@@ -82,6 +82,34 @@ class OCAController:
         self.unanswered_keepalives = 0
         self.session_active = asyncio.Event()
 
+        self.handle_registry = HandleRegistry()
+        self._current_handle = 0
+
+
+    # == == == == == Helpers
+
+    @property
+    def next_handle(self) -> int:
+        self._current_handle += 1
+        return self._current_handle
+
+
+    def create_commandrrq(self, commands: list[Ocp1Command]) -> Ocp1CommandPdu:
+        payload_length = 0
+        for command in commands:
+            self.handle_registry[command.handle] = command
+            payload_length += command.__sizeof__()
+        return Ocp1CommandPdu(
+            header=Ocp1Header(
+                protocol_version = 1,
+                message_size = Ocp1Header.__sizeof__() + payload_length,
+                message_type = MessageType.COMMAND_RESPONSE_REQUIRED,
+                message_count = len(commands)
+            ),
+            commands=commands
+        )
+        
+
 
     # == == == == == Queue Consumers
 
@@ -110,17 +138,20 @@ class OCAController:
         Handle incoming data
         """
         while True:
-            message = await self.receive_queue.get()
             try:
-                pdu = marshal(message)
+                message = await self.receive_queue.get()
+                try:
+                    pdu = marshal(message, self.handle_registry)
+                except Exception as exc:
+                    logging.warning(f"Could not parse incoming data: {exc}")
+                logging.info(f"Receive: {type(pdu).__qualname__}")
+                
+                if isinstance(pdu, Ocp1KeepAlivePdu):
+                    if not self.session_active.is_set():
+                        self.session_active.set()
+                    self.unanswered_keepalives -= 1 if self.unanswered_keepalives > 0 else self.unanswered_keepalives
             except Exception as exc:
-                logging.warning(f"Could not parse incoming data: {exc}")
-            logging.info(f"Receive: {type(pdu).__qualname__}")
-            
-            if isinstance(pdu, Ocp1KeepAlivePdu):
-                if not self.session_active.is_set():
-                    self.session_active.set()
-                self.unanswered_keepalives -= 1 if self.unanswered_keepalives > 0 else self.unanswered_keepalives
+                logging.warning(f"Exception raised: {exc}")
 
 
     # == == == == == Device Supervision
@@ -130,21 +161,24 @@ class OCAController:
         Maintain KeepAlive with the device
         AES70-3 5.3
         """
-        keepalive_pkt = Ocp1KeepAlivePdu(
-            header=Ocp1Header(
-                protocol_version=1,
-                message_size=11,
-                message_type=MessageType.KEEPALIVE.value,
-                message_count=1,
-            ),
-            heartbeat=T_KEEPALIVE_S,
-        )
-        while True:
-            if self.unanswered_keepalives >= 3:
-                self._state_transition(State.DISCONNECTED)
-            self.transmit_queue.put_nowait(keepalive_pkt)
-            self.unanswered_keepalives += 1
-            await asyncio.sleep(T_KEEPALIVE_S)
+        try:
+            keepalive_pkt = Ocp1KeepAlivePdu(
+                header=Ocp1Header(
+                    protocol_version=OcaUint16(1),
+                    message_size=OcaUint32(11),
+                    message_type=MessageType.KEEPALIVE,
+                    message_count=OcaUint16(1),
+                ),
+                heartbeat=OcaUint16(value=T_KEEPALIVE_S),
+            )
+            while True:
+                if self.unanswered_keepalives >= 3:
+                    self._state_transition(State.DISCONNECTED)
+                self.transmit_queue.put_nowait(keepalive_pkt)
+                self.unanswered_keepalives += 1
+                await asyncio.sleep(T_KEEPALIVE_S)
+        except Exception as exc:
+            logging.warning(f"Exception!: {exc}")
     
     
     # == == == == == State management
@@ -219,25 +253,40 @@ class OCAController:
         await asyncio.sleep(0.1)
 
         # Demo
-        for param in [Parameter(value=0, format="H"), Parameter(value=1, format="H")]:
-            pkt = Ocp1CommandPdu(
-                header=Ocp1Header(
-                    protocol_version=1,
-                    message_size=28,
-                    message_type=MessageType.COMMAND_RESPONSE_REQUIRED.value,
-                    message_count=1,
-                ),
-                commands=[
-                    Ocp1Command(
-                        handle=1,
-                        target_ono=0x3060058,
-                        method_id=OcaMethodID(def_level=4, method_index=2),
-                        parameters=Ocp1Parameters(parameters=[param]),
-                    )
-                ],
-            )
-            await self.transmit_queue.put(pkt)
-            await asyncio.sleep(5)
+        await self.enumerate_test()
+
+        await asyncio.sleep(5)
+        exit(0)
+        # for param in [Parameter(value=0, format="H"), Parameter(value=1, format="H")]:
+        #     pkt = Ocp1CommandPdu(
+        #         header=Ocp1Header(
+        #             protocol_version=1,
+        #             message_size=28,
+        #             message_type=MessageType.COMMAND_RESPONSE_REQUIRED,
+        #             message_count=1,
+        #         ),
+        #         commands=[
+        #             Ocp1Command(
+        #                 handle=1,
+        #                 target_ono=0x3060058,
+        #                 method_id=OcaMethodID(def_level=4, method_index=2),
+        #                 parameters=Ocp1Parameters(parameters=[param]),
+        #             )
+        #         ],
+        #     )
+        #     await self.transmit_queue.put(pkt)
+        #     await asyncio.sleep(5)
+    
+
+    async def enumerate_test(self) -> None:
+        await self.transmit_queue.put(
+            self.create_commandrrq([Ocp1Command(
+                handle=self.next_handle,
+                target_ono=0x1,
+                method_id=OcaMethodID(def_level=3, method_index=19),
+                parameters=Ocp1Parameters(parameters=None)
+            )])
+        )
 
 
     async def start(self: object) -> None:

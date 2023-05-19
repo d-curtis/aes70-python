@@ -12,7 +12,7 @@ class OcaManagerDescriptor(OcaAbstractBase):
 
     @property
     def format(self) -> str:
-        return f"{OcaONo.format}{self.name.format}{OcaClassID.format, OcaClassVersionNumber.format}"
+        return f"{OcaONo.format}{self.name._format}{OcaClassID.format, OcaClassVersionNumber.format}"
 
 
 class OcaManagerDefaultObjectNumbers(OcaAbstractBase):
@@ -44,7 +44,7 @@ class OcaModelDescription(OcaAbstractBase):
 
     @property
     def format(self) -> str:
-        return f"{self.manufacturer.format}{self.name.format}{self.version.format}"
+        return f"{self.manufacturer._format}{self.name._format}{self.version._format}"
 
 
 class OcaComponent(Enum):
