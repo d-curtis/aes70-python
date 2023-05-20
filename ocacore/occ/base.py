@@ -62,6 +62,10 @@ class SerialisableBase(OcaAbstractBase):
             for attr in dir(self)
             if attr.startswith("oca_")
         ]
+        
+        # Strings must be encoded when packed
+        values = [v.encode("UTF-8") if isinstance(v, str) else v for v in values]
+
         return struct.pack(
             "!" + self._format.replace("!", ""),
             *values
