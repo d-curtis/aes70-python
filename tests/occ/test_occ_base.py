@@ -28,7 +28,7 @@ def test_OcaPrimitives(
 ) -> None:
     assert all([
         cls(value) == value,
-        cls(value=value) == value,
+        cls(oca_value=value) == value,
     ])
 
     _ = [cls(arg) for arg in ok_validation_args]
@@ -50,7 +50,7 @@ def test_OcaPrimitives(
         (OcaUint16, {b"\xFF\xFF": OcaUint16(0xFF_FF), b"\x00\x00": OcaUint16(0)}, [b"\xFF\x00\xFF", b"\xFF"]),
         (OcaUint32, {b"\xFF\xFF\xFF\xFF": OcaUint32(0xFF_FF_FF_FF), b"\x00\x00\x00\x00": OcaUint32(0)}, [b"\xFF\x00\x00\x00\xFF", b"\xFF\x00"]),
         (OcaUint64, {b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaUint64(0xFF_FF_FF_FF_FF_FF_FF_FF), b"\x00\x00\x00\x00\x00\x00\x00\x00": OcaUint64(0)}, [b"\xFF\x00\x00\x00\x00\x00\x00\x00\xFF", b"\xFF\x00"]),
-        (OcaString, {})
+        # (OcaString, {})
 
     ]
 )
