@@ -11,12 +11,12 @@ class OcaManagerDescriptor(OcaAbstractBase):
     class_version: OcaClassVersionNumber
 
     @property
-    def format(self) -> str:
-        return f"{OcaONo.format}{self.name._format}{OcaClassID.format, OcaClassVersionNumber.format}"
+    def _format(self) -> str:
+        return f"{OcaONo._format}{self.name.__format}{OcaClassID._format, OcaClassVersionNumber._format}"
 
 
 class OcaManagerDefaultObjectNumbers(OcaAbstractBase):
-    format: ClassVar[str] = f"13{OcaONo.format}"
+    _format: ClassVar[str] = f"13{OcaONo._format}"
     device_manager: OcaONo
     security_manager: OcaONo
     firmware_manager: OcaONo
@@ -43,8 +43,8 @@ class OcaModelDescription(OcaAbstractBase):
     version: OcaString
 
     @property
-    def format(self) -> str:
-        return f"{self.manufacturer._format}{self.name._format}{self.version._format}"
+    def _format(self) -> str:
+        return f"{self.manufacturer.__format}{self.name.__format}{self.version.__format}"
 
 
 class OcaComponent(Enum):

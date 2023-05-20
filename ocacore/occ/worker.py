@@ -131,19 +131,19 @@ class OcaLevelMeterLaw(Enum):
     PROPRIETARY_VALUE_BASE = 128
 
 class OcaDBr(OcaAbstractBase):
-    format: ClassVar[str] = f"2{OcaDB.format}"
+    _format: ClassVar[str] = f"2{OcaDB._format}"
     value: OcaDB
     ref: OcaDBz
 
 
 class OcaImpedance(OcaAbstractBase):
-    format: ClassVar[str] = f"2{OcaFloat32.format}"
+    _format: ClassVar[str] = f"2{OcaFloat32._format}"
     magnitude: OcaFloat32
     phase: OcaFloat32
 
 
 class OcaDelayValue(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaFloat32.format}B"
+    _format: ClassVar[str] = f"{OcaFloat32._format}B"
     delay_value: OcaFloat32
     delay_unit: OcaDelayUnit
 
@@ -154,12 +154,12 @@ class OcaTransferFunction(OcaAbstractBase):
     phase: OcaList #[OcaFloat32]
 
     @property
-    def format(self) -> str:
-        return f"{self.frequency.format}{self.amplitude.format}{self.phase.format}"
+    def _format(self) -> str:
+        return f"{self.frequency._format}{self.amplitude._format}{self.phase._format}"
 
 
 class OcaPilotToneDetectorSpec(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaDBr.format}{OcaFrequency.format}{OcaPeriod.format}"
+    _format: ClassVar[str] = f"{OcaDBr._format}{OcaFrequency._format}{OcaPeriod._format}"
     threshold: OcaDBr
     frequency: OcaFrequency
     poll_interval: OcaPeriod

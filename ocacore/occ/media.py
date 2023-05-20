@@ -10,7 +10,7 @@ OcaSDPString = OcaString
 
 
 class OcaMediaConnectorState(Enum):
-    format = "B"
+    _format = "B"
     STOPPED = 0
     SETTING_UP = 1
     RUNNING = 2
@@ -19,7 +19,7 @@ class OcaMediaConnectorState(Enum):
 
 
 class OcaMediaConnectorCommand(Enum):
-    format = "B"
+    _format = "B"
     NONE = 0
     START = 1
     PAUSE = 2
@@ -44,8 +44,8 @@ class OcaMediaConnection(OcaAbstractBase):
     stream_channel_count: OcaUint16
 
     @property
-    def format(self) -> str:
-        return f"{OcaBoolean.format}{self.stream_parameters.format}{self.stream_cast_mode.format}{OcaUint16.format}"
+    def _format(self) -> str:
+        return f"{OcaBoolean._format}{self.stream_parameters._format}{self.stream_cast_mode._format}{OcaUint16._format}"
 
 
 class OcaMediaSinkConnector(OcaAbstractBase):
@@ -60,17 +60,17 @@ class OcaMediaSinkConnector(OcaAbstractBase):
     current_coding: OcaMediaCoding
 
     @property
-    def format(self) -> str:
+    def _format(self) -> str:
         return "".join([
-            OcaMediaConnectorID.format,
-            self.id_external._format,
-            self.connection.format,
-            self.available_codings.format,
-            OcaUint16.format,
-            self.channel_pin_map.format,
-            OcaDBFS.format,
-            OcaDB.format,
-            OcaMediaCoding.format
+            OcaMediaConnectorID._format,
+            self.id_external.__format,
+            self.connection._format,
+            self.available_codings._format,
+            OcaUint16._format,
+            self.channel_pin_map._format,
+            OcaDBFS._format,
+            OcaDB._format,
+            OcaMediaCoding._format
         ])
 
 
@@ -86,22 +86,22 @@ class OcaMediaSourceConnector(OcaAbstractBase):
     current_coding: OcaMediaCoding
 
     @property
-    def format(self) -> str:
+    def _format(self) -> str:
         return "".join([
-            OcaMediaConnectorID.format,
-            self.id_external._format,
-            self.connection.format,
-            self.available_codings.format,
-            OcaUint16.format,
-            self.channel_pin_map.format,
-            OcaDBFS.format,
-            OcaDB.format,
-            OcaMediaCoding.format
+            OcaMediaConnectorID._format,
+            self.id_external.__format,
+            self.connection._format,
+            self.available_codings._format,
+            OcaUint16._format,
+            self.channel_pin_map._format,
+            OcaDBFS._format,
+            OcaDB._format,
+            OcaMediaCoding._format
         ])
 
 
 class OcaMediaConnectorStatus(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaMediaConnectorID.format}{OcaMediaConnectorState.format}{OcaUint16.format}"
+    _format: ClassVar[str] = f"{OcaMediaConnectorID._format}{OcaMediaConnectorState._format}{OcaUint16._format}"
     connector_id: OcaMediaConnectorID
     state: OcaMediaConnectorState
     error_code: OcaUint16

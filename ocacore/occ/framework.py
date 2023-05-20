@@ -14,7 +14,7 @@ OcaOrganizationID = OcaBlob
 
 
 class OcaClassAuthorityID(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaUint16.format}{OcaUint8.format}{OcaOrganizationID.format}"
+    _format: ClassVar[str] = f"{OcaUint16._format}{OcaUint8._format}{OcaOrganizationID._format}"
     sentinel: OcaUint16
     reserved: OcaUint8
     organization_id: OcaOrganizationID
@@ -29,10 +29,10 @@ class OcaClassID(OcaAbstractBase):
     fields: list[OcaClassIDField]
 
     @property
-    def format(self) -> str:
+    def _format(self) -> str:
         return "".join([
-            OcaUint16.format,
-            *[field.format for field in self.fields]
+            OcaUint16._format,
+            *[field._format for field in self.fields]
         ])
 
 
@@ -43,8 +43,8 @@ class OcaVersion(OcaAbstractBase):
     component: "OcaComponent"
 
     @property
-    def format(self) -> str:
-        return f"3{OcaUint32.format}{self.component.format}"
+    def _format(self) -> str:
+        return f"3{OcaUint32._format}{self.component._format}"
 
 
 class OcaClassIdentification(OcaAbstractBase):
@@ -52,50 +52,50 @@ class OcaClassIdentification(OcaAbstractBase):
     class_version: OcaClassVersionNumber
 
     @property
-    def format(self) -> str:
-        return f"{self.class_id.format}{OcaClassVersionNumber.format}"
+    def _format(self) -> str:
+        return f"{self.class_id._format}{OcaClassVersionNumber._format}"
 
 
 class OcaOPath(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaNetworkHostID.format}{OcaONo.format}"
+    _format: ClassVar[str] = f"{OcaNetworkHostID._format}{OcaONo._format}"
     host_id: OcaNetworkHostID
     ono: OcaONo
 
 
 class OcaObjectIdentification(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaONo.format}{OcaClassIdentification.format}"
+    _format: ClassVar[str] = f"{OcaONo._format}{OcaClassIdentification._format}"
     ono: OcaONo
     class_identification: OcaClassIdentification
 
 
 class OcaMethodID(OcaAbstractBase):
-    format: ClassVar[str] = f"2{OcaUint16.format}"
+    _format: ClassVar[str] = f"2{OcaUint16._format}"
     def_level: OcaUint16
     method_index: OcaUint16
 
     @property
     def bytes(self) -> struct.Struct:
         return struct.pack(
-            self.format,
+            self._format,
             self.def_level,
             self.method_index
         )
 
 
 class OcaPropertyID(OcaAbstractBase):
-    format: ClassVar[str] = f"2{OcaUint16.format}"
+    _format: ClassVar[str] = f"2{OcaUint16._format}"
     def_level: OcaUint16
     property_index: OcaUint16
 
 
 class OcaEventID(OcaAbstractBase):
-    format: ClassVar[str] = f"2{OcaUint16.format}"
+    _format: ClassVar[str] = f"2{OcaUint16._format}"
     def_level: OcaUint16
     event_index: OcaUint16
 
 
 class OcaPropertyDescriptor(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaPropertyID.format}B{OcaMethodID.format}{OcaMethodID.format}"
+    _format: ClassVar[str] = f"{OcaPropertyID._format}B{OcaMethodID._format}{OcaMethodID._format}"
     property_id: OcaPropertyID
     base_data_type: OcaUint8 # Key for base.oca_base_data_type
     getter_method_id: OcaMethodID
@@ -103,7 +103,7 @@ class OcaPropertyDescriptor(OcaAbstractBase):
 
 
 class OcaProperty(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaONo.format}{OcaPropertyDescriptor.format}"
+    _format: ClassVar[str] = f"{OcaONo._format}{OcaPropertyDescriptor._format}"
     ono: OcaONo
     descriptor: OcaPropertyDescriptor
 
@@ -127,7 +127,7 @@ class OcaStatus(Enum):
 
 
 class OcaGlobalTypeIdentifier(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaOrganizationID.format}{OcaUint32.format}"
+    _format: ClassVar[str] = f"{OcaOrganizationID._format}{OcaUint32._format}"
     authority: OcaOrganizationID
     id: OcaUint32
 

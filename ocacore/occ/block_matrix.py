@@ -10,7 +10,7 @@ OcaMatrixCoordinate = OcaUint16
 
 
 class OcaBlockMember(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaObjectIdentification.format}{OcaONo.format}"
+    _format: ClassVar[str] = f"{OcaObjectIdentification._format}{OcaONo._format}"
     member_object_identification: OcaObjectIdentification
     container_object_number: OcaONo
 
@@ -31,8 +31,8 @@ class OcaPort(OcaAbstractBase):
     name: OcaString
 
     @property
-    def format(self) -> str:
-        return f"{OcaONo.format}{OcaPortID.format}{self.name._format}"
+    def _format(self) -> str:
+        return f"{OcaONo._format}{OcaPortID._format}{self.name.__format}"
 
 
 class OcaSignalPath(OcaAbstractBase):
@@ -40,18 +40,18 @@ class OcaSignalPath(OcaAbstractBase):
     sink_port: OcaPort
 
     @property
-    def format(self) -> str:
-        return f"{self.source_port.format}{self.sink_port.format}"
+    def _format(self) -> str:
+        return f"{self.source_port._format}{self.sink_port._format}"
 
 
 class OcaProtoObjectIdentification(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaProtoONo.format}{OcaClassIdentification.format}"
+    _format: ClassVar[str] = f"{OcaProtoONo._format}{OcaClassIdentification._format}"
     pono: OcaProtoONo
     class_identification: OcaClassIdentification
 
 
 class OcaProtoPortID(OcaAbstractBase):
-    format: ClassVar[str] = f"{OcaPortMode.format}{OcaUint16.format}"
+    _format: ClassVar[str] = f"{OcaPortMode._format}{OcaUint16._format}"
     mode: OcaPortMode
     index: OcaUint16
 
@@ -62,8 +62,8 @@ class OcaProtoPort(OcaAbstractBase):
     name: OcaString
 
     @property
-    def format(self) -> str:
-        return f"{OcaProtoONo.format}{self.proto_id.format}{self.name._format}"
+    def _format(self) -> str:
+        return f"{OcaProtoONo._format}{self.proto_id._format}{self.name.__format}"
 
 
 class OcaProtoSignalPath(OcaAbstractBase):
@@ -71,8 +71,8 @@ class OcaProtoSignalPath(OcaAbstractBase):
     sink_protoport: OcaProtoPort
 
     @property
-    def format(self) -> str:
-        return f"{self.source_protoport.format}{self.sink_protoport.format}"
+    def _format(self) -> str:
+        return f"{self.source_protoport._format}{self.sink_protoport._format}"
 
 
 class OcaObjectSearchResult(OcaAbstractBase):
@@ -83,6 +83,6 @@ class OcaObjectSearchResult(OcaAbstractBase):
     label: OcaString
 
     @property
-    def format(self) -> str:
-        return f"{OcaONo.format}{OcaClassIdentification.format}{OcaONoPath.format}{self.role._format}{self.label._format}"
+    def _format(self) -> str:
+        return f"{OcaONo._format}{OcaClassIdentification._format}{OcaONoPath._format}{self.role._format}{self.label._format}"
 

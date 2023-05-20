@@ -50,15 +50,16 @@ class SerialisableBase(OcaAbstractBase):
     @property
     def bytes(self) -> bytes:
         attributes = dict(self)
+        
         return struct.pack(
-            "!" + self.format.replace("!", ""),
+            "!" + self._format.replace("!", ""),
             *[value for value in attributes.values()]
         )
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "SerialisableBase":
-        attributes = struct.unpack("!" + cls.format.replace("!", ""), data)
-        fields = cls.__fields__.keys()
+        attributes = struct.unpack("!" + cls._format.replace("!", ""), data)
+        fields = [field for field in cls.__fields__.keys() if not field.startswith("_")]
         if len(attributes) > 1:
             return cls(**dict(zip(fields, *attributes)))
         return cls(**dict(zip(fields, attributes)))
@@ -67,62 +68,62 @@ class SerialisableBase(OcaAbstractBase):
 # == == == == == Base data types
 
 class OcaBit(OcaAbstractBase):
-    format: ClassVar[str] = "B"
+    _format: ClassVar[str] = "B"
     value: int8
 
 
 class OcaBoolean(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "?"
+    _format: ClassVar[str] = "?"
     value: bool
 
 
 class OcaInt8(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "b"
+    _format: ClassVar[str] = "b"
     value: int8
 
 
 class OcaInt16(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "h"
+    _format: ClassVar[str] = "h"
     value: int16
 
 
 class OcaInt32(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "i"
+    _format: ClassVar[str] = "i"
     value: int32
 
 
 class OcaInt64(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "q"
+    _format: ClassVar[str] = "q"
     value: int64
 
 
 class OcaUint8(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "B"
+    _format: ClassVar[str] = "B"
     value: uint8
 
 
 class OcaUint16(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "H"
+    _format: ClassVar[str] = "H"
     value: uint16
 
 
 class OcaUint32(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "I"
+    _format: ClassVar[str] = "I"
     value: uint32
 
 
 class OcaUint64(OcaValueBase, SerialisableBase):
-    format: ClassVar[str] = "Q"
+    _format: ClassVar[str] = "Q"
     value: uint64
 
 
 class OcaFloat32(OcaValueBase):
-    format: ClassVar[str] = "f"
+    _format: ClassVar[str] = "f"
     value: float #TODO how to constrain floats?
 
 
 class OcaFloat64(OcaValueBase):
-    format: ClassVar[str] = "d"
+    _format: ClassVar[str] = "d"
     value: float #TODO how to constrain floats?
 
 
@@ -134,8 +135,8 @@ class OcaString(OcaValueBase, SerialisableBase):
     value: str
 
     @property
-    def format(self) -> str:
-        return f"{OcaUint16.format}{len(self.value)}s"
+    def _format(self) -> str:
+        return f"{OcaUint16._format}{len(self.value)}s"
 
 
 class OcaBitstring(OcaAbstractBase):
@@ -146,8 +147,8 @@ class OcaBitstring(OcaAbstractBase):
         return self.num_bits
 
     @property
-    def format(self) -> str:
-        return f"{ceil(self.num_bits / 8)}{OcaUint8.format}"
+    def _format(self) -> str:
+        return f"{ceil(self.num_bits / 8)}{OcaUint8._format}"
 
 
 class OcaBlob(OcaAbstractBase):
@@ -155,8 +156,8 @@ class OcaBlob(OcaAbstractBase):
     data: list[OcaUint8]
 
     @property
-    def format(self) -> str:
-        return f"{self.data_size}{OcaUint8.format}"
+    def _format(self) -> str:
+        return f"{self.data_size}{OcaUint8._format}"
 
 
 #NotImplemented
@@ -169,8 +170,8 @@ class OcaList(OcaAbstractBase):
     items: list["template_type"]
 
     @property
-    def format(self) -> str:
-        return f"{self.count}{self.data_type.format}"
+    def _format(self) -> str:
+        return f"{self.count}{self.data_type._format}"
 
 
 class OcaList2D(OcaAbstractBase):
@@ -180,7 +181,7 @@ class OcaList2D(OcaAbstractBase):
     items: list[list["template_type"]]
 
     @property
-    def format(self) -> str:
+    def _format(self) -> str:
         raise NotImplementedError
 
 
@@ -191,8 +192,8 @@ class OcaMapItem(OcaAbstractBase):
     value: "value_type"
 
     @property
-    def format(self) -> str:
-        return f"{self.key_type.format}{self.value_type.format}"
+    def _format(self) -> str:
+        return f"{self.key_type._format}{self.value_type._format}"
 
 
 class OcaMap(OcaAbstractBase):
@@ -202,8 +203,8 @@ class OcaMap(OcaAbstractBase):
     items: list[OcaMapItem]
 
     @property
-    def format(self) -> str:
-        return f"{self.key_type.format}{self.value_type.format}" * self.count
+    def _format(self) -> str:
+        return f"{self.key_type._format}{self.value_type._format}" * self.count
 
 
 class OcaMultiMap(OcaAbstractBase):
@@ -213,8 +214,8 @@ class OcaMultiMap(OcaAbstractBase):
     items: list[OcaMapItem]
 
     @property
-    def format(self) -> str:
-        return f"{self.key_type.format}{self.value_type.format}" * self.count
+    def _format(self) -> str:
+        return f"{self.key_type._format}{self.value_type._format}" * self.count
 
 
 # == == == == == 
