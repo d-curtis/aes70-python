@@ -50,12 +50,12 @@ def test_OcaPrimitives(
         (OcaUint16, {b"\xFF\xFF": OcaUint16(0xFF_FF), b"\x00\x00": OcaUint16(0)}, [b"\xFF\x00\xFF", b"\xFF"]),
         (OcaUint32, {b"\xFF\xFF\xFF\xFF": OcaUint32(0xFF_FF_FF_FF), b"\x00\x00\x00\x00": OcaUint32(0)}, [b"\xFF\x00\x00\x00\xFF", b"\xFF\x00"]),
         (OcaUint64, {b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaUint64(0xFF_FF_FF_FF_FF_FF_FF_FF), b"\x00\x00\x00\x00\x00\x00\x00\x00": OcaUint64(0)}, [b"\xFF\x00\x00\x00\x00\x00\x00\x00\xFF", b"\xFF\x00"]),
-        # (OcaString, {})
+        (OcaString, {b"\x00\x05Beans": OcaString("Beans")}, b"Toast")
 
     ]
 )
 def test_SerialisableBase_unpack(
-    cls: SerialisableBase,
+    cls: OcaSerialisableBase,
     ok_bytes: dict[bytes, Any],
     ng_bytes: list[bytes],
 ) -> None:
@@ -63,7 +63,7 @@ def test_SerialisableBase_unpack(
         assert cls.from_bytes(data) == result
     
     for data in ng_bytes:
-        with pytest.raises((struct.error, pydantic.error_wrappers.ValidationError)):
+        with pytest.raises((struct.error, pydantic.error_wrappers.ValidationError, TypeError)):
             struct.unpack(cls._format, data)
 
 
@@ -83,12 +83,13 @@ def test_SerialisableBase_unpack(
         (OcaUint8(0xAF), b"\xAF"),
         (OcaUint16(0xAF_FF), b"\xAF\xFF"),
         (OcaUint32(0xAF_FF_FF_FF), b"\xAF\xFF\xFF\xFF"),
-        (OcaUint64(0xAF_FF_FF_FF_FF_FF_FF_FF), b"\xAF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        (OcaUint64(0xAF_FF_FF_FF_FF_FF_FF_FF), b"\xAF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"),
+        (OcaString("Beans"), b"\x00\x05Beans")
 
     ]
 )
 def test_SerialisableBase_pack(
-    obj: SerialisableBase,
+    obj: OcaSerialisableBase,
     obj_bytes: bytes
 ) -> None:
     assert obj.bytes == obj_bytes

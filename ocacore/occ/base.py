@@ -45,7 +45,7 @@ class OcaValueBase(OcaAbstractBase):
         return other == self.oca_value
 
 
-class SerialisableBase(OcaAbstractBase):
+class OcaSerialisableBase(OcaAbstractBase):
 
     @property
     def bytes(self) -> bytes:
@@ -73,8 +73,21 @@ class SerialisableBase(OcaAbstractBase):
 
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "SerialisableBase":
-        attributes = struct.unpack("!" + cls._format.replace("!", ""), data)
+    def from_bytes(cls, data: bytes) -> "OcaSerialisableBase":
+        """
+        Attempt to create an instance of `cls` from the `data` bytes.
+        This relies on the class being a fixed length. If the `_format` string is dynamic, such as with `OcaString`
+        then this method should be overridden by the child class with more specific unpacking behaviour.
+
+        Args:
+            data (bytes): _description_
+
+        Returns:
+            OcaSerialisableBase: _description_
+        """
+        if isinstance(cls._format, property):
+            raise TypeError(f"Used inherited `from_bytes` from OcaSerialisableBase, but `_format` is a property. Implement `from_bytes` on {cls.__qualname__}!")
+        attributes = struct.unpack(f"!{cls._format}", data)
         fields = [field for field in cls.__fields__.keys() if not field.startswith("_")]
         if len(attributes) > 1:
             return cls(**dict(zip(fields, *attributes)))
@@ -88,47 +101,47 @@ class OcaBit(OcaAbstractBase):
     oca_value: int8
 
 
-class OcaBoolean(OcaValueBase, SerialisableBase):
+class OcaBoolean(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "?"
     oca_value: bool
 
 
-class OcaInt8(OcaValueBase, SerialisableBase):
+class OcaInt8(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "b"
     oca_value: int8
 
 
-class OcaInt16(OcaValueBase, SerialisableBase):
+class OcaInt16(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "h"
     oca_value: int16
 
 
-class OcaInt32(OcaValueBase, SerialisableBase):
+class OcaInt32(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "i"
     oca_value: int32
 
 
-class OcaInt64(OcaValueBase, SerialisableBase):
+class OcaInt64(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "q"
     oca_value: int64
 
 
-class OcaUint8(OcaValueBase, SerialisableBase):
+class OcaUint8(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "B"
     oca_value: uint8
 
 
-class OcaUint16(OcaValueBase, SerialisableBase):
+class OcaUint16(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "H"
     oca_value: uint16
 
 
-class OcaUint32(OcaValueBase, SerialisableBase):
+class OcaUint32(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "I"
     oca_value: uint32
 
 
-class OcaUint64(OcaValueBase, SerialisableBase):
+class OcaUint64(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "Q"
     oca_value: uint64
 
@@ -143,7 +156,7 @@ class OcaFloat64(OcaValueBase):
     oca_value: float #TODO how to constrain floats?
 
 
-class OcaString(OcaValueBase, SerialisableBase):
+class OcaString(OcaValueBase, OcaSerialisableBase):
     @property
     def oca_length(self) -> OcaUint16:
         return len(self.oca_value)
@@ -153,6 +166,12 @@ class OcaString(OcaValueBase, SerialisableBase):
     @property
     def _format(self) -> str:
         return f"{OcaUint16._format}{len(self.oca_value)}s"
+    
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "OcaString":
+        length, *_ = struct.unpack(f"!{OcaUint16._format}", data[:2])
+        value, *_ = struct.unpack(f"!{length}s", data[2:])
+        return cls(value.decode("UTF-8"))
 
 
 class OcaBitstring(OcaAbstractBase):
