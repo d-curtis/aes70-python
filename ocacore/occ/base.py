@@ -86,14 +86,13 @@ class OcaSerialisableBase(OcaAbstractBase):
             str: lambda value: value.encode("UTF-8"),
             BitArray: lambda value: value.bytes
         }
-        for value, i in enumerate(values):
+        for i, value in enumerate(values):
             if (t := type(value)) in getters:
                 values[i] = getters[t](value)
         
-        # if isinstance(self, OcaBitstring):
-            # breakpoint()
-        
         return struct.pack(
+            # Join all of the format strings for all contained types.
+            # Byte order modifier `!` can only be at the start of the entire string.
             "!" + self._format.replace("!", ""),
             *values
         )
@@ -220,7 +219,7 @@ class OcaBitstring(OcaSerialisableBase):
 
     class Config:
         arbitrary_types_allowed = True
-
+        
     @property
     def num_bits(self) -> OcaUint8:
         return OcaUint16(len(self.bitstring))
@@ -237,8 +236,8 @@ class OcaBitstring(OcaSerialisableBase):
     @classmethod
     def from_bytes(cls, data: bytes) -> "OcaBitstring":
         length, *_ = struct.unpack(f"!{OcaUint16._format}", data[:2])
-        values = struct.unpack(f"!{ceil(length)}s", data[2:])
-        return cls(num_bits=length, bitstring=values)
+        values, *_ = struct.unpack(f"!{ceil(length / 8)}s", data[2:])
+        return cls(num_bits=length, bitstring=BitArray(values))
 
 
 class OcaBlob(OcaAbstractBase):

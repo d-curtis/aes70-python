@@ -18,7 +18,6 @@ invalid_int_args = [{"k": "v"}, [1, 2, 3], None, "Hello"]
         (OcaUint32, 0xFF_FF_FF_FF, [0, 1], invalid_int_args + [-1, 0xFF_FF_FF_FF_FF]),
         (OcaUint64, 0xFF_FF_FF_FF_FF_FF_FF_FF, [0, 1], invalid_int_args + [-1, 0xFF_FF_FF_FF_FF_FF_FF_FF_FF]),
         (OcaString, "Hello", [], []),
-        # (OcaBitstring, b"\x00\x01\x02\x03", [], []),
     ]
 )
 def test_OcaPrimitives(
@@ -102,8 +101,8 @@ def test_OcaPrimitives(
             [b"Toast"]
         ),
         (OcaBitstring, {
-            b"\x00\x01": OcaBitstring(bitstring=BitArray(hex="0x0001")), 
-            b"\x10\x00": OcaBitstring(bitstring=BitArray(hex="0x1000"))
+            b"\x00\x10\x00\x01": OcaBitstring(bitstring=BitArray(hex="0x0001")), 
+            b"\x00\x10\x10\x00": OcaBitstring(bitstring=BitArray(hex="0x1000"))
         }, 
             None
         )
@@ -142,8 +141,8 @@ def test_SerialisableBase_unpack(
         (OcaUint32(0xAF_FF_FF_FF), b"\xAF\xFF\xFF\xFF"),
         (OcaUint64(0xAF_FF_FF_FF_FF_FF_FF_FF), b"\xAF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"),
         (OcaString("Beans"), b"\x00\x05Beans"),
-        (OcaBitstring(bitstring=BitArray(hex="0x0001")), b"\x00\x01"),
-        (OcaBitstring(bitstring=BitArray(hex="0x1000")), b"\x10\x00")
+        (OcaBitstring(bitstring=BitArray(hex="0x0001")), b"\x00\x10\x00\x01"),
+        (OcaBitstring(bitstring=BitArray(hex="0x1000")), b"\x00\x10\x10\x00")
     ]
 )
 def test_SerialisableBase_pack(
