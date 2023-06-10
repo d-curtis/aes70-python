@@ -1,5 +1,5 @@
-from ocacore.occ.base import *
-from ocacore.occ.framework import *
+from ocacore.occ.types.base import *
+from ocacore.occ.types.framework import *
 from typing import ClassVar
 from enum import Enum
 

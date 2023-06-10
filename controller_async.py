@@ -101,10 +101,10 @@ class OCAController:
             payload_length += command.__sizeof__()
         return Ocp1CommandPdu(
             header=Ocp1Header(
-                protocol_version = 1,
-                message_size = Ocp1Header.__sizeof__() + payload_length,
+                protocol_version = OcaUint16(1),
+                message_size = OcaUint32(Ocp1Header.__sizeof__() + payload_length),
                 message_type = MessageType.COMMAND_RESPONSE_REQUIRED,
-                message_count = len(commands)
+                message_count = OcaUint16(len(commands))
             ),
             commands=commands
         )
@@ -279,11 +279,13 @@ class OCAController:
     
 
     async def enumerate_test(self) -> None:
+        # 3.19 - getManagers
+        # 3.4 - DeviceName
         await self.transmit_queue.put(
             self.create_commandrrq([Ocp1Command(
                 handle=self.next_handle,
                 target_ono=0x1,
-                method_id=OcaMethodID(def_level=3, method_index=19),
+                method_id=OcaMethodID(def_level=OcaUint16(3), method_index=OcaUint16(4)),
                 parameters=Ocp1Parameters(parameters=None)
             )])
         )

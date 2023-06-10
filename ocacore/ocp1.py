@@ -7,14 +7,14 @@ This contains the data structure definitions for OCP.1
 
 from pydantic import BaseModel
 from typing import Any, Union, ClassVar, Optional, TypedDict
-from ocacore.occ import *
+from ocacore.occ.types import *
 import enum
 import struct
 
 # AES70-3 5.6.1.1
 SYNC_VAL = 0x3B
 
-
+HandleRegistry = dict[uint32, "Ocp1Command"]
 
 class MessageType(enum.Enum):
     COMMAND = 0
@@ -36,12 +36,12 @@ class Ocp1Header(BaseModel):
     class Config:
         arbitrary_types_allowed = True
     
-    format: ClassVar[str] = "".join([
+    _format: ClassVar[str] = "".join([
         "!",
-        OcaUint16.format,
-        OcaUint32.format,
+        OcaUint16._format,
+        OcaUint32._format,
         "B",
-        OcaUint16.format
+        OcaUint16._format
     ])
 
     protocol_version: OcaUint16
@@ -56,7 +56,7 @@ class Ocp1Header(BaseModel):
     @property
     def bytes(self) -> struct.Struct:
         return struct.pack(
-            self.format,
+            self._format,
             self.protocol_version,
             self.message_size,
             self.message_type,
@@ -70,7 +70,7 @@ class Ocp1Header(BaseModel):
             message_size, 
             message_type, 
             message_count 
-        ) = struct.unpack(cls.format, data)
+        ) = struct.unpack(cls._format, data)
         return cls(
             protocol_version=OcaUint16(protocol_version),
             message_size=OcaUint32(message_size),
@@ -80,7 +80,7 @@ class Ocp1Header(BaseModel):
     
     @classmethod
     def __sizeof__(cls) -> int:
-        return struct.calcsize(cls.format)
+        return struct.calcsize(cls._format)
 
 
 class Ocp1KeepAlive(BaseModel):
@@ -89,7 +89,7 @@ class Ocp1KeepAlive(BaseModel):
 
 class Parameter(BaseModel):
     value: Any
-    format: str # struct format string
+    _format: str # struct format string
 
 
 class Ocp1Parameters(BaseModel):
@@ -106,7 +106,7 @@ class Ocp1Parameters(BaseModel):
     def bytes(self) -> struct.Struct:
         if self.parameters is None:
             return struct.pack("!B", 0)
-        parameters_format = "".join(p.format for p in self.parameters)
+        parameters_format = "".join(p._format for p in self.parameters)
         return struct.pack(f"!B{parameters_format}", self.parameter_count, *[p.value for p in self.parameters])
     
     @classmethod
@@ -115,7 +115,7 @@ class Ocp1Parameters(BaseModel):
         #TODO - Parameters will be variable length according to the invoked method.
         #       This needs a way of knowing what the format should be for us to unpack correctly.
         #       For now, let's just store the byte array and deal with it Soon(tm)...
-        parameters = [Parameter(value=data[1:], format="No clue m8")]
+        parameters = [Parameter(value=data[1:], _format="No clue m8")]
         return cls(parameters=parameters)
 
 
@@ -187,9 +187,9 @@ class Ocp1NotificationPdu:
 
 
 class Ocp1Response(BaseModel):
-    response_size: int # u32
-    handle: int # u32
-    status_code: int # OcaStatus
+    response_size: OcaUint32 # u32
+    handle: OcaUint32 # u32
+    status_code: OcaStatus # OcaStatus
     parameters: Ocp1Parameters
     
     @property
@@ -201,6 +201,11 @@ class Ocp1Response(BaseModel):
             self.status_code,
             self.parameters.bytes
         )
+    
+    @classmethod
+    def handle_from_bytes(cls, data: bytes) -> int:
+        _, handle = struct.unpack("!ii", data[:8])
+        return handle
     
     @classmethod
     def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1Response":
@@ -231,11 +236,20 @@ class Ocp1ResponsePdu(Ocp1PDU):
         )
     
     @classmethod
-    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1ResponsePdu":
+    def from_bytes(cls, data: bytes, handle_registry: HandleRegistry, *args, **kwargs) -> "Ocp1ResponsePdu":
         #TODO Need to know the method that was invoked, response handle will match, so register this somewhere to know the format of the parameters
-        raise NotImplementedError
-        # sync_val, header_bytes = struct.unpack(f"!b9s", data[:10]) 
-        # breakpoint()
+        sync_val, header_bytes = struct.unpack(f"!b9s", data[:10]) 
+        header = Ocp1Header.from_bytes(header_bytes)
+        data = data[10:] # strip header bytes
+        
+        # The response format depends on the command it is responding to.
+        # We can look this up using the `handle` number, bundled with the response.
+        for response_i in range(header.message_count):
+            handle = Ocp1Response.handle_from_bytes(data)
+            source_command = handle_registry[handle]
+            breakpoint()
+            #TODO: Looks like I need to define local models for alllll of the control classes, in order to know the return types...
+
         # return cls(
         #     sync_val = sync_val,
         #     header = Ocp1Header.from_bytes(header_bytes)
@@ -245,11 +259,11 @@ class Ocp1ResponsePdu(Ocp1PDU):
 
 class Ocp1KeepAlivePdu(Ocp1PDU):
     sync_val: ClassVar[int] = SYNC_VAL
-    format: ClassVar[int] = "".join([
+    _format: ClassVar[int] = "".join([
         "!",
         "B",
         str(Ocp1Header.__sizeof__()) + "s",
-        OcaUint16.format
+        OcaUint16._format
     ])
     header: Ocp1Header
     heartbeat: OcaUint16
@@ -257,7 +271,7 @@ class Ocp1KeepAlivePdu(Ocp1PDU):
     @property
     def bytes(self) -> struct.Struct:
         return struct.pack(
-            self.format,
+            self._format,
             self.sync_val,
             self.header.bytes,
             self.heartbeat
@@ -265,7 +279,7 @@ class Ocp1KeepAlivePdu(Ocp1PDU):
     
     @classmethod
     def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1KeepAlivePdu":
-        sync_val, header_bytes, heartbeat = struct.unpack(cls.format, data)
+        sync_val, header_bytes, heartbeat = struct.unpack(cls._format, data)
         return cls(
             sync_val = sync_val,
             header = Ocp1Header.from_bytes(header_bytes),
@@ -283,7 +297,6 @@ PDU_CLASSES = {
     4: Ocp1KeepAlivePdu
 }
 
-HandleRegistry = dict[uint32, Ocp1Command]
 
 def marshal(data: bytes, handle_registry: HandleRegistry) -> Ocp1PDU:
     """

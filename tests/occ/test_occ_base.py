@@ -1,6 +1,6 @@
 import pytest
 import pydantic
-from ocacore.occ.base import *
+from ocacore.occ.types.base import *
 from typing import Any
 
 invalid_int_args = [{"k": "v"}, [1, 2, 3], None, "Hello"]

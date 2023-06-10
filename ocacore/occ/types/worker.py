@@ -1,4 +1,4 @@
-from ocacore.occ.base import *
+from ocacore.occ.types.base import *
 from typing import ClassVar
 
 OcaDB = OcaFloat32

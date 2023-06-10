@@ -1,8 +1,8 @@
 
 from typing import ClassVar
 from enum import Enum
-from ocacore.occ.base import *
-from ocacore.occ.network import OcaNetworkHostID
+from ocacore.occ.types.base import *
+from ocacore.occ.types.network import OcaNetworkHostID
 
 
 OcaClassVersionNumber = OcaUint16
@@ -69,7 +69,7 @@ class OcaObjectIdentification(OcaAbstractBase):
 
 
 class OcaMethodID(OcaAbstractBase):
-    _format: ClassVar[str] = f"2{OcaUint16._format}"
+    _format: ClassVar[str] = f"!2{OcaUint16._format}"
     def_level: OcaUint16
     method_index: OcaUint16
 

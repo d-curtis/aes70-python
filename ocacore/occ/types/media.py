@@ -1,6 +1,6 @@
-from ocacore.occ.base import *
-from ocacore.occ.worker import *
-from ocacore.occ.framework import OcaONo
+from ocacore.occ.types.base import *
+from ocacore.occ.types.worker import *
+from ocacore.occ.types.framework import OcaONo
 
 
 OcaMediaConnectorID = OcaUint16
