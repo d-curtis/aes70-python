@@ -18,6 +18,7 @@ invalid_int_args = [{"k": "v"}, [1, 2, 3], None, "Hello"]
         (OcaUint32, 0xFF_FF_FF_FF, [0, 1], invalid_int_args + [-1, 0xFF_FF_FF_FF_FF]),
         (OcaUint64, 0xFF_FF_FF_FF_FF_FF_FF_FF, [0, 1], invalid_int_args + [-1, 0xFF_FF_FF_FF_FF_FF_FF_FF_FF]),
         (OcaString, "Hello", [], []),
+        # (OcaBitstring, b"\x00\x01\x02\x03", [], []),
     ]
 )
 def test_OcaPrimitives(
@@ -28,7 +29,7 @@ def test_OcaPrimitives(
 ) -> None:
     assert all([
         cls(value) == value,
-        cls(oca_value=value) == value,
+        cls(value=value) == value,
     ])
 
     _ = [cls(arg) for arg in ok_validation_args]
@@ -41,17 +42,71 @@ def test_OcaPrimitives(
 @pytest.mark.parametrize(
     "cls, ok_bytes, ng_bytes",
     [
-        (OcaBoolean, {b"\x00": OcaBoolean(False), b"\x01": OcaBoolean(True)}, [b"\xFF\x00"]),
-        (OcaInt8, {b"\x7F": OcaInt8(0x7F), b"\xFF": OcaInt8(-1)}, [b"\xFF\x00"]),
-        (OcaInt16, {b"\x7F\xFF": OcaInt16(0x7F_FF), b"\xFF\xFF": OcaInt16(-1)}, [b"\xFF\xFF\xFF"]),
-        (OcaInt32, {b"\x7F\xFF\xFF\xFF": OcaInt32(0x7F_FF_FF_FF), b"\xFF\xFF\xFF\xFF": OcaInt32(-1)}, [b"\xFF\xFF\xFF\xFF\xFF"]),
-        (OcaInt64, {b"\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaInt64(0x7F_FF_FF_FF_FF_FF_FF_FF), b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaInt64(-1)}, [b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"]),
-        (OcaUint8, {b"\xFF": OcaUint8(0xFF), b"\x00": OcaUint8(0)}, [b"\xFF\x00"]),
-        (OcaUint16, {b"\xFF\xFF": OcaUint16(0xFF_FF), b"\x00\x00": OcaUint16(0)}, [b"\xFF\x00\xFF", b"\xFF"]),
-        (OcaUint32, {b"\xFF\xFF\xFF\xFF": OcaUint32(0xFF_FF_FF_FF), b"\x00\x00\x00\x00": OcaUint32(0)}, [b"\xFF\x00\x00\x00\xFF", b"\xFF\x00"]),
-        (OcaUint64, {b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaUint64(0xFF_FF_FF_FF_FF_FF_FF_FF), b"\x00\x00\x00\x00\x00\x00\x00\x00": OcaUint64(0)}, [b"\xFF\x00\x00\x00\x00\x00\x00\x00\xFF", b"\xFF\x00"]),
-        (OcaString, {b"\x00\x05Beans": OcaString("Beans")}, b"Toast")
-
+        (OcaBoolean, {
+            b"\x00": OcaBoolean(False), 
+            b"\x01": OcaBoolean(True)
+        }, 
+            [b"\xFF\x00"]
+        ),
+        (OcaInt8, {
+            b"\x7F": OcaInt8(0x7F), 
+            b"\xFF": OcaInt8(-1)
+        }, 
+            [b"\xFF\x00"]
+        ),
+        (OcaInt16, {
+            b"\x7F\xFF": OcaInt16(0x7F_FF), 
+            b"\xFF\xFF": OcaInt16(-1)
+        }, 
+            [b"\xFF\xFF\xFF"]
+        ),
+        (OcaInt32, {
+            b"\x7F\xFF\xFF\xFF": OcaInt32(0x7F_FF_FF_FF), 
+            b"\xFF\xFF\xFF\xFF": OcaInt32(-1)
+        }, 
+            [b"\xFF\xFF\xFF\xFF\xFF"]
+        ),
+        (OcaInt64, {
+            b"\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaInt64(0x7F_FF_FF_FF_FF_FF_FF_FF), 
+            b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaInt64(-1)
+        }, 
+            [b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"]
+        ),
+        (OcaUint8, {
+            b"\xFF": OcaUint8(0xFF), 
+            b"\x00": OcaUint8(0)
+        }, 
+            [b"\xFF\x00"]
+        ),
+        (OcaUint16, {
+            b"\xFF\xFF": OcaUint16(0xFF_FF), 
+            b"\x00\x00": OcaUint16(0)
+        }, 
+            [b"\xFF\x00\xFF", b"\xFF"]
+        ),
+        (OcaUint32, {
+            b"\xFF\xFF\xFF\xFF": OcaUint32(0xFF_FF_FF_FF), 
+            b"\x00\x00\x00\x00": OcaUint32(0)
+        }, 
+            [b"\xFF\x00\x00\x00\xFF", b"\xFF\x00"]
+        ),
+        (OcaUint64, {
+            b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF": OcaUint64(0xFF_FF_FF_FF_FF_FF_FF_FF), 
+            b"\x00\x00\x00\x00\x00\x00\x00\x00": OcaUint64(0)
+        }, 
+            [b"\xFF\x00\x00\x00\x00\x00\x00\x00\xFF", b"\xFF\x00"]
+        ),
+        (OcaString, {
+            b"\x00\x05Beans": OcaString("Beans")
+        }, 
+            [b"Toast"]
+        ),
+        (OcaBitstring, {
+            b"\x00\x01": OcaBitstring(bitstring=BitArray(hex="0x0001")), 
+            b"\x10\x00": OcaBitstring(bitstring=BitArray(hex="0x1000"))
+        }, 
+            None
+        )
     ]
 )
 def test_SerialisableBase_unpack(
@@ -62,6 +117,8 @@ def test_SerialisableBase_unpack(
     for data, result in ok_bytes.items():
         assert cls.from_bytes(data) == result
     
+    if not ng_bytes:
+        return
     for data in ng_bytes:
         with pytest.raises((struct.error, pydantic.error_wrappers.ValidationError, TypeError)):
             struct.unpack(cls._format, data)
@@ -84,8 +141,9 @@ def test_SerialisableBase_unpack(
         (OcaUint16(0xAF_FF), b"\xAF\xFF"),
         (OcaUint32(0xAF_FF_FF_FF), b"\xAF\xFF\xFF\xFF"),
         (OcaUint64(0xAF_FF_FF_FF_FF_FF_FF_FF), b"\xAF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"),
-        (OcaString("Beans"), b"\x00\x05Beans")
-
+        (OcaString("Beans"), b"\x00\x05Beans"),
+        (OcaBitstring(bitstring=BitArray(hex="0x0001")), b"\x00\x01"),
+        (OcaBitstring(bitstring=BitArray(hex="0x1000")), b"\x10\x00")
     ]
 )
 def test_SerialisableBase_pack(

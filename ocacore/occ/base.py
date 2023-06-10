@@ -5,6 +5,7 @@ from typing import Union, ClassVar
 from pydantic import BaseModel, validator, conint
 from enum import Enum
 from math import ceil
+from bitstring import BitArray
 import struct
 
 
@@ -20,29 +21,50 @@ uint64 = conint(ge=0, le=0xFF_FF_FF_FF_FF_FF_FF_FF)
 
 class OcaAbstractBase(BaseModel):
     """ Base type for all OCC classes. Does not implement anything, only used for typing """
-    pass
+    @property
+    def _attr_order(self):
+        raise NotImplementedError("_attr_order should be defined on the child class.")
 
 
 class OcaValueBase(OcaAbstractBase):
     """ Base type for simple types to add dunder methods for the `value` field """
     
-    def __init__(self, oca_value) -> None:
-        super().__init__(oca_value=oca_value)
+    def __init__(self, value) -> None:
+        super().__init__(value=value)
     
     def __str__(self) -> str:
-        return str(self.oca_value)
+        return str(self.value)
     
     def __int__(self) -> int:
-        return int(self.oca_value)
+        return int(self.value)
 
     def __index__(self) -> int:
-        return int(self.oca_value)
+        return int(self.value)
     
     def __bool__(self) -> bool:
-        return bool(self.oca_value)
+        return bool(self.value)
     
     def __eq__(self, other) -> bool:
-        return other == self.oca_value
+        return other == self.value
+
+    def __add__(self, other) -> int:
+        return self.value + other
+
+    def __sub__(self, other) -> int:
+        return self.value - other
+    
+    def __div__(self, other) -> int:
+        return self.value / other
+
+    def __truediv__(self, other) -> int:
+        return self.value / other
+
+    def __floordiv__(self, other) -> int:
+        return self.value // other
+    
+    def __mul__(self, other) -> int:
+        return self.value * other
+    
 
 
 class OcaSerialisableBase(OcaAbstractBase):
@@ -57,15 +79,20 @@ class OcaSerialisableBase(OcaAbstractBase):
         Returns:
             bytes: The data packed according to the format string
         """
-        values = [
-            getattr(self, attr)
-            for attr in dir(self)
-            if attr.startswith("oca_")
-        ]
+        values = [ getattr(self, attr) for attr in self._attr_order ]
         
-        # Strings must be encoded when packed
-        values = [v.encode("UTF-8") if isinstance(v, str) else v for v in values]
-
+        # Handle any extra processing to get a given type's bytes
+        getters = {
+            str: lambda value: value.encode("UTF-8"),
+            BitArray: lambda value: value.bytes
+        }
+        for value, i in enumerate(values):
+            if (t := type(value)) in getters:
+                values[i] = getters[t](value)
+        
+        # if isinstance(self, OcaBitstring):
+            # breakpoint()
+        
         return struct.pack(
             "!" + self._format.replace("!", ""),
             *values
@@ -87,85 +114,99 @@ class OcaSerialisableBase(OcaAbstractBase):
         """
         if isinstance(cls._format, property):
             raise TypeError(f"Used inherited `from_bytes` from OcaSerialisableBase, but `_format` is a property. Implement `from_bytes` on {cls.__qualname__}!")
-        attributes = struct.unpack(f"!{cls._format}", data)
-        fields = [field for field in cls.__fields__.keys() if not field.startswith("_")]
-        if len(attributes) > 1:
-            return cls(**dict(zip(fields, *attributes)))
-        return cls(**dict(zip(fields, attributes)))
+        values = struct.unpack(f"!{cls._format}", data)
+        print(f"{values=}\n{cls._attr_order=}")
+        if len(values) > 1:
+            return cls(**dict(zip(cls._attr_order, *values)))
+        return cls(**dict(zip(cls._attr_order, values)))
 
 
 # == == == == == Base data types
 
 class OcaBit(OcaAbstractBase):
     _format: ClassVar[str] = "B"
-    oca_value: int8
+    _attr_order: ClassVar[list] = ["value"]
+    value: int8
 
 
 class OcaBoolean(OcaValueBase, OcaSerialisableBase):
     _format: ClassVar[str] = "?"
-    oca_value: bool
+    _attr_order: ClassVar[list] = ["value"]
+    value: bool
 
 
 class OcaInt8(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "b"
-    oca_value: int8
+    value: int8
 
 
 class OcaInt16(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "h"
-    oca_value: int16
+    value: int16
 
 
 class OcaInt32(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "i"
-    oca_value: int32
+    value: int32
 
 
 class OcaInt64(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "q"
-    oca_value: int64
+    value: int64
 
 
 class OcaUint8(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "B"
-    oca_value: uint8
+    value: uint8
 
 
 class OcaUint16(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "H"
-    oca_value: uint16
+    value: uint16
 
 
 class OcaUint32(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "I"
-    oca_value: uint32
+    value: uint32
 
 
 class OcaUint64(OcaValueBase, OcaSerialisableBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "Q"
-    oca_value: uint64
+    value: uint64
 
 
 class OcaFloat32(OcaValueBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "f"
-    oca_value: float #TODO how to constrain floats?
+    value: float #TODO how to constrain floats?
 
 
 class OcaFloat64(OcaValueBase):
+    _attr_order: ClassVar[list] = ["value"]
     _format: ClassVar[str] = "d"
-    oca_value: float #TODO how to constrain floats?
+    value: float #TODO how to constrain floats?
 
 
 class OcaString(OcaValueBase, OcaSerialisableBase):
-    @property
-    def oca_length(self) -> OcaUint16:
-        return len(self.oca_value)
+    _attr_order: ClassVar[list[str]] = ["length", "value"]
 
-    oca_value: str
+    @property
+    def length(self) -> OcaUint16:
+        return len(self.value)
+
+    value: str
 
     @property
     def _format(self) -> str:
-        return f"{OcaUint16._format}{len(self.oca_value)}s"
+        return f"{OcaUint16._format}{len(self.value)}s"
     
     @classmethod
     def from_bytes(cls, data: bytes) -> "OcaString":
@@ -174,25 +215,40 @@ class OcaString(OcaValueBase, OcaSerialisableBase):
         return cls(value.decode("UTF-8"))
 
 
-class OcaBitstring(OcaAbstractBase):
-    oca_num_bits: OcaUint16
-    oca_bitstring: list[OcaUint8]
+class OcaBitstring(OcaSerialisableBase):
+    _attr_order: ClassVar[list[str]] = ["num_bits", "bitstring"]
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @property
+    def num_bits(self) -> OcaUint8:
+        return OcaUint16(len(self.bitstring))
+
+    bitstring: BitArray
 
     def __len__(self) -> int:
-        return self.oca_num_bits
+        return self.num_bits
 
     @property
     def _format(self) -> str:
-        return f"{ceil(self.oca_num_bits / 8)}{OcaUint8._format}"
+        return f"{OcaUint16._format}{ceil(self.num_bits / 8)}s"
+    
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "OcaBitstring":
+        length, *_ = struct.unpack(f"!{OcaUint16._format}", data[:2])
+        values = struct.unpack(f"!{ceil(length)}s", data[2:])
+        return cls(num_bits=length, bitstring=values)
 
 
 class OcaBlob(OcaAbstractBase):
-    oca_data_size: OcaUint16
-    oca_data: list[OcaUint8]
+    _attr_order: ClassVar[list[str]] = ["data_size", "data"]
+    data_size: OcaUint16
+    data: list[OcaUint8]
 
     @property
     def _format(self) -> str:
-        return f"{self.oca_data_size}{OcaUint8._format}"
+        return f"{self.data_size}{OcaUint8._format}"
 
 
 #NotImplemented
@@ -200,20 +256,22 @@ class OcaBlob(OcaAbstractBase):
 
 
 class OcaList(OcaAbstractBase):
-    oca_template_type: OcaAbstractBase
-    oca_count: OcaUint16
-    oca_items: list["template_type"]
+    _attr_order: ClassVar[list[str]] = ["template_type", "count", "items"]
+    template_type: OcaAbstractBase
+    count: OcaUint16
+    items: list[OcaAbstractBase] # Of `template_type`
 
     @property
     def _format(self) -> str:
-        return f"{self.oca_count}{self.oca_data_type._format}"
+        return f"{self.count}{self.template_type._format}"
 
 
 class OcaList2D(OcaAbstractBase):
-    oca_template_type: OcaAbstractBase
-    oca_num_x: OcaUint16
-    oca_num_y: OcaUint16
-    oca_items: list[list["template_type"]]
+    _attr_order: ClassVar[list[str]] = ["template_type", "num_x", "num_y", "items"]
+    template_type: OcaAbstractBase
+    num_x: OcaUint16
+    num_y: OcaUint16
+    items: list[list[OcaAbstractBase]] # of `template_type`
 
     @property
     def _format(self) -> str:
@@ -221,36 +279,39 @@ class OcaList2D(OcaAbstractBase):
 
 
 class OcaMapItem(OcaAbstractBase):
-    oca_key_type: OcaAbstractBase
-    oca_value_type: OcaAbstractBase
-    oca_key: "key_type"
-    oca_value: "value_type"
+    _attr_order: ClassVar[list[str]] = ["key_type", "value_type", "key", "value"]
+    key_type: OcaAbstractBase
+    value_type: OcaAbstractBase
+    key: OcaAbstractBase # of `key_type`
+    value: OcaAbstractBase # of `value_type`
 
     @property
     def _format(self) -> str:
-        return f"{self.oca_key_type._format}{self.oca_value_type._format}"
+        return f"{self.key_type._format}{self.value_type._format}"
 
 
 class OcaMap(OcaAbstractBase):
-    oca_key_type: OcaAbstractBase
-    oca_value_type: OcaAbstractBase
-    oca_count: OcaUint16
-    oca_items: list[OcaMapItem]
+    _attr_order: ClassVar[list[str]] = ["key_type", "value_type", "count", "items"]
+    key_type: OcaAbstractBase
+    value_type: OcaAbstractBase
+    count: OcaUint16
+    items: list[OcaMapItem]
 
     @property
     def _format(self) -> str:
-        return f"{self.oca_key_type._format}{self.oca_value_type._format}" * self.oca_count
+        return f"{self.key_type._format}{self.value_type._format}" * self.count
 
 
 class OcaMultiMap(OcaAbstractBase):
-    oca_key_type: OcaAbstractBase
-    oca_value_type: OcaAbstractBase
-    oca_count: OcaUint16
-    oca_items: list[OcaMapItem]
+    _attr_order: ClassVar[list[str]] = ["key_type", "value_type", "count", "items"]
+    key_type: OcaAbstractBase
+    value_type: OcaAbstractBase
+    count: OcaUint16
+    items: list[OcaMapItem]
 
     @property
     def _format(self) -> str:
-        return f"{self.oca_key_type._format}{self.oca_value_type._format}" * self.oca_count
+        return f"{self.key_type._format}{self.value_type._format}" * self.count
 
 
 # == == == == == 
