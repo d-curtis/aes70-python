@@ -4,7 +4,7 @@ from typing import ClassVar
 from enum import Enum
 
 
-class OcaManagerDescriptor(OcaAbstractBase):
+class OcaManagerDescriptor(OCCBase):
     object_number: OcaONo
     name: OcaString
     class_id: OcaClassID
@@ -15,7 +15,7 @@ class OcaManagerDescriptor(OcaAbstractBase):
         return f"{OcaONo._format}{self.name.__format}{OcaClassID._format, OcaClassVersionNumber._format}"
 
 
-class OcaManagerDefaultObjectNumbers(OcaAbstractBase):
+class OcaManagerDefaultObjectNumbers(OCCBase):
     _format: ClassVar[str] = f"13{OcaONo._format}"
     device_manager: OcaONo
     security_manager: OcaONo
@@ -33,11 +33,12 @@ class OcaManagerDefaultObjectNumbers(OcaAbstractBase):
 
 
 class OcaModelGUID:
-    def __init__(self):
-        raise NotImplementedError
+    reserved: OcaBlobFixedLen.length(1)
+    manufacturer_code: OcaBlobFixedLen.length(3)
+    model_code: OcaBlobFixedLen.length(4)
 
 
-class OcaModelDescription(OcaAbstractBase):
+class OcaModelDescription(OCCBase):
     manufacturer: OcaString
     name: OcaString
     version: OcaString

@@ -9,7 +9,7 @@ OcaProtoMember = OcaProtoONo
 OcaMatrixCoordinate = OcaUint16
 
 
-class OcaBlockMember(OcaAbstractBase):
+class OcaBlockMember(OCCBase):
     _format: ClassVar[str] = f"{OcaObjectIdentification._format}{OcaONo._format}"
     member_object_identification: OcaObjectIdentification
     container_object_number: OcaONo
@@ -20,12 +20,12 @@ class OcaPortMode(Enum):
     OUTPUT = 2
 
 
-class OcaPortID(OcaAbstractBase):
+class OcaPortID(OCCBase):
     mode: OcaPortMode
     index: OcaUint16
 
 
-class OcaPort(OcaAbstractBase):
+class OcaPort(OCCBase):
     owner: OcaONo
     id: OcaPortID
     name: OcaString
@@ -35,7 +35,7 @@ class OcaPort(OcaAbstractBase):
         return f"{OcaONo._format}{OcaPortID._format}{self.name.__format}"
 
 
-class OcaSignalPath(OcaAbstractBase):
+class OcaSignalPath(OCCBase):
     source_port: OcaPort
     sink_port: OcaPort
 
@@ -44,19 +44,19 @@ class OcaSignalPath(OcaAbstractBase):
         return f"{self.source_port._format}{self.sink_port._format}"
 
 
-class OcaProtoObjectIdentification(OcaAbstractBase):
+class OcaProtoObjectIdentification(OCCBase):
     _format: ClassVar[str] = f"{OcaProtoONo._format}{OcaClassIdentification._format}"
     pono: OcaProtoONo
     class_identification: OcaClassIdentification
 
 
-class OcaProtoPortID(OcaAbstractBase):
+class OcaProtoPortID(OCCBase):
     _format: ClassVar[str] = f"{OcaPortMode._format}{OcaUint16._format}"
     mode: OcaPortMode
     index: OcaUint16
 
 
-class OcaProtoPort(OcaAbstractBase):
+class OcaProtoPort(OCCBase):
     owner: OcaProtoONo
     proto_id: OcaProtoPortID
     name: OcaString
@@ -66,7 +66,7 @@ class OcaProtoPort(OcaAbstractBase):
         return f"{OcaProtoONo._format}{self.proto_id._format}{self.name.__format}"
 
 
-class OcaProtoSignalPath(OcaAbstractBase):
+class OcaProtoSignalPath(OCCBase):
     source_protoport: OcaProtoPort
     sink_protoport: OcaProtoPort
 
@@ -75,7 +75,7 @@ class OcaProtoSignalPath(OcaAbstractBase):
         return f"{self.source_protoport._format}{self.sink_protoport._format}"
 
 
-class OcaObjectSearchResult(OcaAbstractBase):
+class OcaObjectSearchResult(OCCBase):
     ono: OcaONo
     class_identification: OcaClassIdentification
     container_path: OcaONoPath

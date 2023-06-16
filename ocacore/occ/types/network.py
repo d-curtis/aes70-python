@@ -55,7 +55,7 @@ class OcaNetworkControlProtocol(Enum):
     OCP03 = 3
 
 
-class OcaNetworkAddress(OcaAbstractBase):
+class OcaNetworkAddress(OCCBase):
     ip: str
     port: int 
 
@@ -68,7 +68,7 @@ class OcaNetworkAddress(OcaAbstractBase):
         )
     
 
-class OcaNetworkSystemInterfaceDescriptor(OcaAbstractBase):
+class OcaNetworkSystemInterfaceDescriptor(OCCBase):
     system_interface_parameters: OcaBlob
     my_network_address: OcaNetworkAddress
 

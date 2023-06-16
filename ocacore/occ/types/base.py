@@ -19,14 +19,14 @@ uint32 = conint(ge=0, le=0xFF_FF_FF_FF)
 uint64 = conint(ge=0, le=0xFF_FF_FF_FF_FF_FF_FF_FF)
 
 
-class OcaAbstractBase(BaseModel):
+class OCCBase(BaseModel):
     """ Base type for all OCC classes. Does not implement anything, only used for typing """
     @property
     def _attr_order(self):
         raise NotImplementedError("_attr_order should be defined on the child class.")
 
 
-class OcaValueBase(OcaAbstractBase):
+class OcaValueBase(OCCBase):
     """ Base type for simple types to add dunder methods for the `value` field """
     
     def __init__(self, value) -> None:
@@ -65,9 +65,12 @@ class OcaValueBase(OcaAbstractBase):
     def __mul__(self, other) -> int:
         return self.value * other
     
+    def __hash__(self) -> int:
+        return hash(self.value)
+    
 
 
-class OcaSerialisableBase(OcaAbstractBase):
+class OcaSerialisableBase(OCCBase):
 
     @property
     def bytes(self) -> bytes:
@@ -122,7 +125,7 @@ class OcaSerialisableBase(OcaAbstractBase):
 
 # == == == == == Base data types
 
-class OcaBit(OcaAbstractBase):
+class OcaBit(OCCBase):
     _format: ClassVar[str] = "B"
     _attr_order: ClassVar[list] = ["value"]
     value: int8
@@ -240,7 +243,7 @@ class OcaBitstring(OcaSerialisableBase):
         return cls(num_bits=length, bitstring=BitArray(values))
 
 
-class OcaBlob(OcaAbstractBase):
+class OcaBlob(OCCBase):
     _attr_order: ClassVar[list[str]] = ["data_size", "data"]
     data_size: OcaUint16
     data: list[OcaUint8]
@@ -250,49 +253,57 @@ class OcaBlob(OcaAbstractBase):
         return f"{self.data_size}{OcaUint8._format}"
 
 
-#NotImplemented
-# class OcaBlobFixedLen(OcaBaseType):
+class OcaBlobFixedLen(OCCBase):
+    _attr_order: ClassVar[list[str]] = ["length", "data"]
+    data: list[OcaUint8]
+     
+    @classmethod
+    def length(cls, l: int) -> "OcaBlobFixedLen":
+        class template(OcaBlobFixedLen):
+            length: ClassVar[int] = l
+        
+        return template
 
 
-class OcaList(OcaAbstractBase):
+class OcaList(OCCBase):
     _attr_order: ClassVar[list[str]] = ["template_type", "count", "items"]
-    template_type: OcaAbstractBase
+    template_type: OCCBase
     count: OcaUint16
-    items: list[OcaAbstractBase] # Of `template_type`
+    items: list[OCCBase] # Of `template_type`
 
     @property
     def _format(self) -> str:
         return f"{self.count}{self.template_type._format}"
 
 
-class OcaList2D(OcaAbstractBase):
+class OcaList2D(OCCBase):
     _attr_order: ClassVar[list[str]] = ["template_type", "num_x", "num_y", "items"]
-    template_type: OcaAbstractBase
+    template_type: OCCBase
     num_x: OcaUint16
     num_y: OcaUint16
-    items: list[list[OcaAbstractBase]] # of `template_type`
+    items: list[list[OCCBase]] # of `template_type`
 
     @property
     def _format(self) -> str:
         raise NotImplementedError
 
 
-class OcaMapItem(OcaAbstractBase):
+class OcaMapItem(OCCBase):
     _attr_order: ClassVar[list[str]] = ["key_type", "value_type", "key", "value"]
-    key_type: OcaAbstractBase
-    value_type: OcaAbstractBase
-    key: OcaAbstractBase # of `key_type`
-    value: OcaAbstractBase # of `value_type`
+    key_type: OCCBase
+    value_type: OCCBase
+    key: OCCBase # of `key_type`
+    value: OCCBase # of `value_type`
 
     @property
     def _format(self) -> str:
         return f"{self.key_type._format}{self.value_type._format}"
 
 
-class OcaMap(OcaAbstractBase):
+class OcaMap(OCCBase):
     _attr_order: ClassVar[list[str]] = ["key_type", "value_type", "count", "items"]
-    key_type: OcaAbstractBase
-    value_type: OcaAbstractBase
+    key_type: OCCBase
+    value_type: OCCBase
     count: OcaUint16
     items: list[OcaMapItem]
 
@@ -301,10 +312,10 @@ class OcaMap(OcaAbstractBase):
         return f"{self.key_type._format}{self.value_type._format}" * self.count
 
 
-class OcaMultiMap(OcaAbstractBase):
+class OcaMultiMap(OCCBase):
     _attr_order: ClassVar[list[str]] = ["key_type", "value_type", "count", "items"]
-    key_type: OcaAbstractBase
-    value_type: OcaAbstractBase
+    key_type: OCCBase
+    value_type: OCCBase
     count: OcaUint16
     items: list[OcaMapItem]
 

@@ -13,20 +13,23 @@ OcaOrganizationID = OcaBlob
 
 
 
-class OcaClassAuthorityID(OcaAbstractBase):
+class OcaClassAuthorityID(OCCBase):
     _format: ClassVar[str] = f"{OcaUint16._format}{OcaUint8._format}{OcaOrganizationID._format}"
     sentinel: OcaUint16
     reserved: OcaUint8
     organization_id: OcaOrganizationID
 
 
-class OcaClassIDField(OcaAbstractBase):
+class OcaClassIDField(OCCBase):
     pass
 
 
-class OcaClassID(OcaAbstractBase):
-    field_count: OcaUint16
-    fields: list[OcaClassIDField]
+class OcaClassID(OCCBase):
+    local_id: list[int]
+    
+    @property
+    def field_count(self) -> OcaUint16:
+        return OcaUint16(len(self.fields))
 
     @property
     def _format(self) -> str:
@@ -36,7 +39,7 @@ class OcaClassID(OcaAbstractBase):
         ])
 
 
-class OcaVersion(OcaAbstractBase):
+class OcaVersion(OCCBase):
     major: OcaUint32
     minor: OcaUint32
     build: OcaUint32
@@ -47,7 +50,7 @@ class OcaVersion(OcaAbstractBase):
         return f"3{OcaUint32._format}{self.component._format}"
 
 
-class OcaClassIdentification(OcaAbstractBase):
+class OcaClassIdentification(OCCBase):
     class_id: OcaClassID
     class_version: OcaClassVersionNumber
 
@@ -56,22 +59,27 @@ class OcaClassIdentification(OcaAbstractBase):
         return f"{self.class_id._format}{OcaClassVersionNumber._format}"
 
 
-class OcaOPath(OcaAbstractBase):
+class OcaOPath(OCCBase):
     _format: ClassVar[str] = f"{OcaNetworkHostID._format}{OcaONo._format}"
     host_id: OcaNetworkHostID
     ono: OcaONo
 
 
-class OcaObjectIdentification(OcaAbstractBase):
+class OcaObjectIdentification(OCCBase):
     _format: ClassVar[str] = f"{OcaONo._format}{OcaClassIdentification._format}"
     ono: OcaONo
     class_identification: OcaClassIdentification
 
 
-class OcaMethodID(OcaAbstractBase):
+class OcaMethodID(OCCBase):
     _format: ClassVar[str] = f"!2{OcaUint16._format}"
-    def_level: OcaUint16
-    method_index: OcaUint16
+    def_level: Union[int, OcaUint16]
+    method_index: Union[int, OcaUint16]
+    
+    @validator("def_level", "method_index")
+    def validate_uint16(cls, value):
+        if isinstance(value, int):
+            return OcaUint16(value)
 
     @property
     def bytes(self) -> struct.Struct:
@@ -81,20 +89,37 @@ class OcaMethodID(OcaAbstractBase):
             self.method_index
         )
 
+    def __hash__(self):
+        return hash((self.def_level, self.method_index))
+    
+    def __eq__(self, other):
+        return hash(self) == hash(other)
 
-class OcaPropertyID(OcaAbstractBase):
+
+class OcaPropertyID(OCCBase):
     _format: ClassVar[str] = f"2{OcaUint16._format}"
-    def_level: OcaUint16
-    property_index: OcaUint16
+    def_level: Union[int, OcaUint16]
+    property_index: Union[int, OcaUint16]
+
+    @validator("def_level", "property_index")
+    def validate_uint16(cls, value):
+        if isinstance(value, int):
+            return OcaUint16(value)
+    
+    def __hash__(self):
+        return hash((self.def_level, self.property_index))
+    
+    def __eq__(self, other):
+        return hash(self) == hash(other)
 
 
-class OcaEventID(OcaAbstractBase):
+class OcaEventID(OCCBase):
     _format: ClassVar[str] = f"2{OcaUint16._format}"
     def_level: OcaUint16
     event_index: OcaUint16
 
 
-class OcaPropertyDescriptor(OcaAbstractBase):
+class OcaPropertyDescriptor(OCCBase):
     _format: ClassVar[str] = f"{OcaPropertyID._format}B{OcaMethodID._format}{OcaMethodID._format}"
     property_id: OcaPropertyID
     base_data_type: OcaUint8 # Key for base.oca_base_data_type
@@ -102,7 +127,7 @@ class OcaPropertyDescriptor(OcaAbstractBase):
     setter_method_id: OcaMethodID
 
 
-class OcaProperty(OcaAbstractBase):
+class OcaProperty(OCCBase):
     _format: ClassVar[str] = f"{OcaONo._format}{OcaPropertyDescriptor._format}"
     ono: OcaONo
     descriptor: OcaPropertyDescriptor
@@ -126,7 +151,7 @@ class OcaStatus(Enum):
     BufferOverflow: 14
 
 
-class OcaGlobalTypeIdentifier(OcaAbstractBase):
+class OcaGlobalTypeIdentifier(OCCBase):
     _format: ClassVar[str] = f"{OcaOrganizationID._format}{OcaUint32._format}"
     authority: OcaOrganizationID
     id: OcaUint32

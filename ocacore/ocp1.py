@@ -208,7 +208,7 @@ class Ocp1Response(BaseModel):
         return handle
     
     @classmethod
-    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1Response":
+    def from_bytes(cls, data: bytes, handle_registry: HandleRegistry, *args, **kwargs) -> "Ocp1Response":
         response_size, handle, status_code = struct.unpack("!iiB", data[:9])
         parameter_len = response_size - struct.calcsize("!iiB")
         parameters = struct.unpack(f"!{parameter_len}B", data[9:])

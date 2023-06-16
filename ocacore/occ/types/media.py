@@ -31,13 +31,13 @@ class OcaMediaStreamCastMode(Enum):
     MULTICAST = 2
 
 
-class OcaMediaCoding(OcaAbstractBase):
+class OcaMediaCoding(OCCBase):
     coding_scheme_id: OcaMediaCodingSchemeID
     codec_parameters: OcaString
     clock_ono: OcaONo
 
 
-class OcaMediaConnection(OcaAbstractBase):
+class OcaMediaConnection(OCCBase):
     secure: OcaBoolean
     stream_parameters: OcaMediaStreamParameters
     stream_cast_mode: OcaMediaStreamCastMode
@@ -48,7 +48,7 @@ class OcaMediaConnection(OcaAbstractBase):
         return f"{OcaBoolean._format}{self.stream_parameters._format}{self.stream_cast_mode._format}{OcaUint16._format}"
 
 
-class OcaMediaSinkConnector(OcaAbstractBase):
+class OcaMediaSinkConnector(OCCBase):
     id_internal: OcaMediaConnectorID
     id_external: OcaString
     connection: OcaMediaConnection
@@ -74,7 +74,7 @@ class OcaMediaSinkConnector(OcaAbstractBase):
         ])
 
 
-class OcaMediaSourceConnector(OcaAbstractBase):
+class OcaMediaSourceConnector(OCCBase):
     id_internal: OcaMediaConnectorID
     id_external: OcaString
     connection: OcaMediaConnection
@@ -100,7 +100,7 @@ class OcaMediaSourceConnector(OcaAbstractBase):
         ])
 
 
-class OcaMediaConnectorStatus(OcaAbstractBase):
+class OcaMediaConnectorStatus(OCCBase):
     _format: ClassVar[str] = f"{OcaMediaConnectorID._format}{OcaMediaConnectorState._format}{OcaUint16._format}"
     connector_id: OcaMediaConnectorID
     state: OcaMediaConnectorState

@@ -10,6 +10,7 @@ from typing import Awaitable
 
 from ocacomms.OcaDiscovery import OcaDiscovery
 from ocacore.ocp1 import *
+from ocacore.occ.root import OcaRoot
 
 
 class State(enum.Enum):
@@ -281,11 +282,12 @@ class OCAController:
     async def enumerate_test(self) -> None:
         # 3.19 - getManagers
         # 3.4 - DeviceName
+        # 1.5 - RootBlock::GetRole
         await self.transmit_queue.put(
             self.create_commandrrq([Ocp1Command(
                 handle=self.next_handle,
                 target_ono=0x1,
-                method_id=OcaMethodID(def_level=OcaUint16(3), method_index=OcaUint16(4)),
+                method_id=OcaMethodID(def_level=1, method_index=5),
                 parameters=Ocp1Parameters(parameters=None)
             )])
         )
