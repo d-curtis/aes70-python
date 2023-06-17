@@ -49,13 +49,19 @@ class OcaRoot(BaseModel):
     
     @property
     def methods(self) -> dict[OcaMethodID, Method]:
-        def build_methods(obj: OcaRoot, methods: dict[OcaMethodID, Method] = {}):
-            methods.update(
-                {m.method_id: m for m in dir(obj) if isinstance(m, Method)}
-            )
+        def build_methods(obj: OcaRoot, enumerated_methods: dict[OcaMethodID, Method] = {}):
+            for attr_name in dir(obj):
+                if attr_name == "methods":
+                    continue
+                try:
+                    if isinstance(attr := getattr(obj, attr_name), Method):
+                        enumerated_methods[attr.method_id] = attr
+                except AttributeError:
+                    pass
+                
             if not isinstance(obj, OcaRoot):
-                methods = build_methods(obj.__bases__[0], methods)
-            return methods
+                enumerated_methods = build_methods(obj.__bases__[0], enumerated_methods)
+            return enumerated_methods
 
         return build_methods(self)
 
