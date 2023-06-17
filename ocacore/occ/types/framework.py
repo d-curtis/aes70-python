@@ -95,6 +95,9 @@ class OcaMethodID(OCCBase):
     def __eq__(self, other):
         return hash(self) == hash(other)
 
+    def __str__(self):
+        return f"{self.def_level}.{self.method_index}"        
+
 
 class OcaPropertyID(OCCBase):
     _format: ClassVar[str] = f"2{OcaUint16._format}"
@@ -134,21 +137,21 @@ class OcaProperty(OCCBase):
 
 
 class OcaStatus(Enum):
-    OK: 0
-    ProtocolVersionError: 1
-    DeviceError: 2
-    Locked: 3
-    BadFormat: 4
-    BadONo: 5
-    ParameterError: 6
-    ParameterOutOfRange: 7
-    NotImplemented: 8
-    InvalidRequest: 9
-    ProcessingFailed: 10
-    BadMethod: 11
-    PartiallySucceeded: 12
-    Timeout: 13
-    BufferOverflow: 14
+    OK=0
+    ProtocolVersionError= 1
+    DeviceError= 2
+    Locked= 3
+    BadFormat= 4
+    BadONo= 5
+    ParameterError= 6
+    ParameterOutOfRange= 7
+    NotImplemented= 8
+    InvalidRequest= 9
+    ProcessingFailed= 10
+    BadMethod= 11
+    PartiallySucceeded= 12
+    Timeout= 13
+    BufferOverflow= 14
 
 
 class OcaGlobalTypeIdentifier(OCCBase):

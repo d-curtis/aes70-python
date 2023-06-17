@@ -10,7 +10,7 @@ from typing import Awaitable
 
 from ocacomms.OcaDiscovery import OcaDiscovery
 from ocacore.ocp1 import *
-from ocacore.occ.root import OcaRoot
+from ocacore.utils import *
 
 
 class State(enum.Enum):
@@ -24,6 +24,7 @@ T_KEEPALIVE_S: int = 5  # seconds
 T_DISCOVERY_S: int = 0.5
 RECV_IP: str = ""
 RECV_PORT: int = 42042
+
 
 
 class OCAClientProtocol:
@@ -60,6 +61,7 @@ class OCAController:
         self.transport = None
         self.device_name: str = device_name
         self.device_protocol: str = device_protocol
+        self.device_model: ControlledDevice = None
 
         # Set up logging
         logging.basicConfig(
@@ -131,6 +133,9 @@ class OCAController:
         while True:
             pkt = await self.transmit_queue.get()
             logging.info(f"Transmit: {type(pkt).__qualname__}")
+            if isinstance(pkt, Ocp1CommandPdu):
+                for cmd in pkt.commands:
+                    logging.info(f"\t{cmd.target_ono}::{cmd.method_id}({cmd.parameters})")
             self.protocol.send(pkt)
 
 
@@ -142,10 +147,14 @@ class OCAController:
             try:
                 message = await self.receive_queue.get()
                 try:
-                    pdu = marshal(message, self.handle_registry)
+                    pdu = marshal(message, self.handle_registry, self.device_model)
                 except Exception as exc:
                     logging.warning(f"Could not parse incoming data: {exc}")
                 logging.info(f"Receive: {type(pdu).__qualname__}")
+                if isinstance(pdu, Ocp1ResponsePdu):
+                    for resp_i, resp in enumerate(pdu.responses):
+                        for param_i, param in enumerate(resp.parameters):
+                            logging.info(f"\tResponse {resp_i} Parameters {param_i}: {[p for p in param[1]]}")
                 
                 if isinstance(pdu, Ocp1KeepAlivePdu):
                     if not self.session_active.is_set():
@@ -251,6 +260,7 @@ class OCAController:
         """
         Main tick for State.CONNECTED
         """
+        self.device_model = ControlledDevice()
         await asyncio.sleep(0.1)
 
         # Demo

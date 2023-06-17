@@ -8,6 +8,7 @@ This contains the data structure definitions for OCP.1
 from pydantic import BaseModel
 from typing import Any, Union, ClassVar, Optional, TypedDict
 from ocacore.occ.types import *
+from ocacore.utils import *
 import enum
 import struct
 
@@ -88,8 +89,7 @@ class Ocp1KeepAlive(BaseModel):
 
 
 class Parameter(BaseModel):
-    value: Any
-    _format: str # struct format string
+    value: OCCBase
 
 
 class Ocp1Parameters(BaseModel):
@@ -106,16 +106,17 @@ class Ocp1Parameters(BaseModel):
     def bytes(self) -> struct.Struct:
         if self.parameters is None:
             return struct.pack("!B", 0)
-        parameters_format = "".join(p._format for p in self.parameters)
+        parameters_format = "".join(p.value._format for p in self.parameters)
         return struct.pack(f"!B{parameters_format}", self.parameter_count, *[p.value for p in self.parameters])
     
     @classmethod
-    def from_bytes(cls, data: bytes, *args, **kwargs) -> "Ocp1Parameters":
-        parameter_count = struct.unpack("!B", data[0])
+    def from_bytes(cls, data: bytes, parameter_type: OCCBase, *args, **kwargs) -> "Ocp1Parameters":
+        parameter_count = struct.unpack("!B", data[:1])
         #TODO - Parameters will be variable length according to the invoked method.
         #       This needs a way of knowing what the format should be for us to unpack correctly.
         #       For now, let's just store the byte array and deal with it Soon(tm)...
-        parameters = [Parameter(value=data[1:], _format="No clue m8")]
+        parameter = parameter_type.from_bytes(data[1:])
+        parameters = [Parameter(value=parameter)]
         return cls(parameters=parameters)
 
 
@@ -143,7 +144,25 @@ class Ocp1Command(BaseModel):
     target_ono: uint32
     method_id: OcaMethodID
     parameters: Ocp1Parameters
-    response_format: Optional[list[str]]
+    
+    def response_type(self, device_model: ControlledDevice) -> str:
+        """
+        Look up the expected response format for a given command.
+        We must have already enumerated the target object in order to know its signature.
+
+        Returns:
+            str: `struct` format string for the expected `response`
+        """
+        try:
+            target_object = device_model.control_objects[self.target_ono]
+        except KeyError as exc:
+            raise KeyError(f"Unknown ONo: {self.target_ono} | Known objects: {device_model.control_objects}") from exc
+        try:
+            target_method = target_object.methods[self.method_id]
+        except KeyError as exc:
+            raise KeyError(f"Unknown method: {self.target_ono} | Known methods: {device_model.control_objects}") from exc
+        return target_method.response_type
+
 
     @property
     def bytes(self) -> struct.Struct:
@@ -208,15 +227,18 @@ class Ocp1Response(BaseModel):
         return handle
     
     @classmethod
-    def from_bytes(cls, data: bytes, handle_registry: HandleRegistry, *args, **kwargs) -> "Ocp1Response":
+    def from_bytes(cls, data: bytes, handle_registry: HandleRegistry, device_model: ControlledDevice, *args, **kwargs) -> "Ocp1Response":
         response_size, handle, status_code = struct.unpack("!iiB", data[:9])
         parameter_len = response_size - struct.calcsize("!iiB")
-        parameters = struct.unpack(f"!{parameter_len}B", data[9:])
+        parameters_data = data[9:]
+        source_command = handle_registry[handle]
+        target_object = device_model.control_objects[source_command.target_ono]
+        response_type = target_object.methods[source_command.method_id].response_type
         return cls(
-            response_size=response_size,
-            handle=handle,
-            status_code=status_code,
-            parameters=Ocp1Parameters(parameters=parameters, format="#TODOOOOO") #TODO see note in Ocp1Parameters
+            response_size=OcaUint32(response_size),
+            handle=OcaUint32(handle),
+            status_code=OcaStatus(status_code),
+            parameters=Ocp1Parameters.from_bytes(data=parameters_data, parameter_type=response_type)
         )
 
 
@@ -236,25 +258,23 @@ class Ocp1ResponsePdu(Ocp1PDU):
         )
     
     @classmethod
-    def from_bytes(cls, data: bytes, handle_registry: HandleRegistry, *args, **kwargs) -> "Ocp1ResponsePdu":
-        #TODO Need to know the method that was invoked, response handle will match, so register this somewhere to know the format of the parameters
+    def from_bytes(cls, data: bytes, handle_registry: HandleRegistry, device_model: ControlledDevice, *args, **kwargs) -> "Ocp1ResponsePdu":
         sync_val, header_bytes = struct.unpack(f"!b9s", data[:10]) 
         header = Ocp1Header.from_bytes(header_bytes)
         data = data[10:] # strip header bytes
         
         # The response format depends on the command it is responding to.
         # We can look this up using the `handle` number, bundled with the response.
+        responses = []
         for response_i in range(header.message_count):
-            handle = Ocp1Response.handle_from_bytes(data)
-            source_command = handle_registry[handle]
-            breakpoint()
-            #TODO: Looks like I need to define local models for alllll of the control classes, in order to know the return types...
-
-        # return cls(
-        #     sync_val = sync_val,
-        #     header = Ocp1Header.from_bytes(header_bytes)
-        #     responses = [Ocp1Response.from_bytes()]
-        # )
+            #TODO Handle multiple messages
+            responses.append(Ocp1Response.from_bytes(data, handle_registry=handle_registry, device_model=device_model))
+            
+        return cls(
+            sync_val = sync_val,
+            header = header,
+            responses = responses
+        )
 
 
 class Ocp1KeepAlivePdu(Ocp1PDU):
@@ -298,7 +318,7 @@ PDU_CLASSES = {
 }
 
 
-def marshal(data: bytes, handle_registry: HandleRegistry) -> Ocp1PDU:
+def marshal(data: bytes, handle_registry: HandleRegistry, device_model: ControlledDevice) -> Ocp1PDU:
     """
     Parse serialised packets back into OCP1 objects
 
@@ -313,4 +333,4 @@ def marshal(data: bytes, handle_registry: HandleRegistry) -> Ocp1PDU:
     header_end = header_offset + Ocp1Header.__sizeof__()
     header = Ocp1Header.from_bytes(data[header_offset : header_end])
     pdu_type = PDU_CLASSES[header.message_type]
-    return pdu_type.from_bytes(data, handle_registry)
+    return pdu_type.from_bytes(data, handle_registry, device_model)

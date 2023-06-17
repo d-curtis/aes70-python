@@ -97,7 +97,8 @@ class OcaRoot(BaseModel):
         method_id=OcaMethodID(def_level=1, method_index=4)
     )
     get_role: ClassVar[Method] = Method(
-        method_id=OcaMethodID(def_level=1, method_index=5)
+        method_id=OcaMethodID(def_level=1, method_index=5),
+        response_type=OcaString
     )
     lock_readonly: ClassVar[Method] = Method(
         method_id=OcaMethodID(def_level=1, method_index=6)
