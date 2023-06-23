@@ -280,7 +280,7 @@ ifaddr = ">=0.1.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "03361dbf37018e2d8f3a17af4868fc8bf4806d8fab5f36a7ccd6e0e2e734576c"
+content-hash = "ba4afd788fedcc38755abcd291f9a5c9953be4cc08c2d55645053edca4c19c2d"
 
 [metadata.files]
 appdirs = [

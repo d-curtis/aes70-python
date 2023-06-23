@@ -1,11 +1,8 @@
 import socket
-import time
-import sys
 import enum
-import types
 import logging
 import asyncio
-import random
+import click
 from typing import Awaitable
 
 from ocacomms.OcaDiscovery import OcaDiscovery
@@ -313,9 +310,10 @@ class OCAController:
             await self._state_callbacks[self.state]()
 
 
-# == == == == ==
+# == == == == =
 
-
-if __name__ == "__main__":
-    controller = OCAController(sys.argv[1], sys.argv[2])
+@click.command()
+@click.argument('target', nargs=1)
+def connect(target: str):
+    controller = OCAController(target, "udp")
     asyncio.get_event_loop().run_until_complete(controller.start())
